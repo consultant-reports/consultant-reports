@@ -9,14 +9,14 @@
   <meta name="referrer" content="no-referrer">
   <title>Daily Consultant Reports</title>
   <link rel="stylesheet" href="vendor/quill.snow.css">
-  <link rel="stylesheet" href="css/base.css?v=10">
-  <link rel="stylesheet" href="css/consultant.css?v=10">
-  <script defer src="js/fallback.js?v=10"></script>
+  <link rel="stylesheet" href="css/base.css?v=11">
+  <link rel="stylesheet" href="css/consultant.css?v=11">
+  <script defer src="js/fallback.js?v=11"></script>
   <script defer src="vendor/supabase.js"></script>
   <script defer src="vendor/quill.js"></script>
   <script defer src="vendor/purify.min.js"></script>
   <script defer src="vendor/browser-image-compression.js"></script>
-  <script type="module" src="js/consultant.js?v=10"></script>
+  <script type="module" src="js/consultant.js?v=11"></script>
 </head>
 <body>
   <header class="topbar">
@@ -53,6 +53,11 @@
           <span class="label" data-i18n="reg.code">Team Access Code</span>
           <input class="input" id="regCode" name="code" autocomplete="off" maxlength="64" data-i18n-ph="reg.code.ph">
         </label>
+        <label class="field" id="regPairField" hidden>
+          <span class="label" data-i18n="reg.pair">Device link code</span>
+          <input class="input" id="regPair" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr" placeholder="000000">
+          <span class="hint" data-i18n="reg.pair.hint"></span>
+        </label>
         <div id="regError" class="msg error" role="alert" hidden></div>
         <div class="row-btns">
           <button type="button" class="btn" id="regCancel" data-i18n="common.cancel" hidden>Cancel</button>
@@ -71,6 +76,7 @@
         </div>
         <div class="identity-actions">
           <button type="button" class="linkbtn" id="editDetails" data-i18n="rep.editDetails">Edit my details</button>
+          <button type="button" class="linkbtn" id="pairBtn" data-i18n="rep.pair">Link another device</button>
           <button type="button" class="linkbtn" id="logoutBtn" data-i18n="rep.logout">Sign out</button>
         </div>
       </div>

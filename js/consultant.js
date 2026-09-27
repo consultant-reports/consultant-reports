@@ -1,11 +1,11 @@
 // Consultant app (Section 7): registration + Submit Report.
-import { CONFIG } from './config.js?v=10';
-import { t, applyI18n, bindLangToggle } from './i18n.js?v=10';
+import { CONFIG } from './config.js?v=11';
+import { t, applyI18n, bindLangToggle } from './i18n.js?v=11';
 import {
   createSupabase, normalizeMobile, fmtDate, fmtTime, uuid, errorKey, PROJECT_TYPES, sleep,
-} from './lib.js?v=10';
-import { sanitizeReportHtml } from './sanitize.js?v=10';
-import { photoStore } from './idb.js?v=10';
+} from './lib.js?v=11';
+import { sanitizeReportHtml } from './sanitize.js?v=11';
+import { photoStore } from './idb.js?v=11';
 
 const sb = createSupabase({ anonymous: true });
 const $ = (id) => document.getElementById(id);
@@ -150,6 +150,8 @@ function openRegister(mode) {
   $('regMobile').readOnly = edit;
   $('regMobileHint').dataset.i18n = edit ? 'edit.mobileHint' : 'reg.mobile.hint';
   $('regCode').value = '';
+  $('regPairField').hidden = true;
+  $('regPair').value = '';
   showMsg($('regError'), '');
   applyI18n($('screenRegister'));
   show('screenRegister');
@@ -191,8 +193,15 @@ function wireRegister() {
       } else {
         const { data, error } = await sb.rpc('register_consultant', {
           p_full_name: name, p_mobile: mobile, p_team_code: code || null, p_device_id: deviceId(),
+          p_pair_code: $('regPair').value.trim() || null,
         });
         if (error) throw error;
+        if (data?.error === 'pair_code_needed' || data?.error === 'invalid_pair_code') {
+          // This mobile already has a device: link this one with the code from the first device.
+          $('regPairField').hidden = false;
+          $('regPair').focus();
+          if (data.error === 'invalid_pair_code') $('regPair').select();
+        }
         if (data?.error) throw new Error(data.error);
         S.me = {
           consultant_id: data.consultant_id, full_name: data.full_name,
@@ -232,6 +241,30 @@ async function checkBinding() {
   forgetMe(); // the draft stays on the phone and comes back after registering again
   openRegister('register');
   showMsg($('regError'), t(error ? 'err.device_bound_other' : 'reg.released'));
+}
+
+// First device: show a 6-digit code to link a second device (e.g. WhatsApp's browser or a laptop).
+async function showPairingCode() {
+  const btn = $('pairBtn');
+  btn.disabled = true;
+  try {
+    const { data, error } = await sb.rpc('create_pairing_code', {
+      p_consultant_id: S.me.consultant_id, p_device_token: S.me.device_token,
+    });
+    if (error) throw error;
+    const box = $('noticeBox');
+    box.className = 'msg info pair-box';
+    box.replaceChildren(
+      document.createTextNode(t('pair.intro')),
+      Object.assign(document.createElement('div'), { className: 'pair-code', textContent: data.code.replace(/(\d{3})(\d{3})/, '$1 $2') }),
+      document.createTextNode(t('pair.steps')));
+    box.hidden = false;
+    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (e) {
+    notice(t(errorKey(e)), 'error');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function forgetMe() {
@@ -321,6 +354,7 @@ function wireReport() {
   $('reportForm').addEventListener('submit', (e) => { e.preventDefault(); submit(); });
   $('editDetails').addEventListener('click', () => openRegister('edit'));
   $('logoutBtn').addEventListener('click', logout);
+  $('pairBtn').addEventListener('click', showPairingCode);
   $('finishBtn').addEventListener('click', finishWithoutRemaining);
   $('anotherBtn').addEventListener('click', () => {
     resetForm();

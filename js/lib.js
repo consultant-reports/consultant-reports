@@ -1,6 +1,6 @@
 // Shared helpers: Supabase client, dates in Asia/Riyadh, mobile numbers, file names.
 // supabase-js 2.117.2 comes from vendor/supabase.js (a plain script loaded before this module).
-import { CONFIG } from './config.js?v=10';
+import { CONFIG } from './config.js?v=11';
 
 // The consultant page must always act as anonymous, even if a manager is
 // signed in to the dashboard in the same browser — so it never persists a session.
@@ -208,6 +208,7 @@ export function errorKey(err) {
     'invalid_team_code', 'invalid_mobile', 'device_bound_other', 'device_required', 'code_required', 'code_length', 'invalid_name', 'device_not_allowed',
     'device_not_recognized', 'mobile_taken', 'unknown_consultant', 'invalid_project',
     'invalid_project_type', 'empty_report', 'too_many_photos', 'daily_limit', 'report_conflict',
+    'device_limit', 'pair_code_needed', 'invalid_pair_code',
     'upload_refused', 'photos_missing_locally', 'rate_limited', 'bad_html', 'mobile_change_manager', 'unknown_report',
   ];
   const hit = known.find((k) => msg.includes(k));

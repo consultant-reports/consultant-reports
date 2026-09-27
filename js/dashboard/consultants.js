@@ -1,8 +1,8 @@
 // Consultants (Section 8.5): registrations, last submission, Active toggle,
 // plus the team access code (manager may change it) and releasing a phone.
-import { t } from '../i18n.js?v=10';
-import { el, fmtDate, fmtDateTime, errorKey } from '../lib.js?v=10';
-import { loadingBlock, errorBlock, viewHead, dataTable, field } from './ui.js?v=10';
+import { t } from '../i18n.js?v=11';
+import { el, fmtDate, fmtDateTime, errorKey } from '../lib.js?v=11';
+import { loadingBlock, errorBlock, viewHead, dataTable, field } from './ui.js?v=11';
 
 export async function render(ctx, view, _params, isCurrent) {
   view.replaceChildren(viewHead(t('nav.consultants')), loadingBlock());
@@ -69,7 +69,8 @@ export async function render(ctx, view, _params, isCurrent) {
       label: t('cs.phone'),
       render: (c) => {
         const box = el('div', { class: 'actions' });
-        box.append(el('span', { class: `pill ${Number(c.phones) > 0 ? '' : 'muted'}`, text: t(Number(c.phones) > 0 ? 'cs.bound' : 'cs.unbound') }));
+        const n = Number(c.phones);
+        box.append(el('span', { class: `pill ${n > 0 ? '' : 'muted'}`, text: t(n === 0 ? 'cs.unbound' : n === 1 ? 'cs.devices1' : n === 2 ? 'cs.devices2' : 'cs.devicesN', { n }) }));
         if (Number(c.phones) > 0) {
           box.append(el('button', {
             type: 'button', class: 'btn sm', text: t('cs.release'),
