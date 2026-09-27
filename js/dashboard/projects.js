@@ -1,7 +1,7 @@
 // Projects management (Section 8.4): add, edit, deactivate; promote "Other" names.
-import { t } from '../i18n.js?v=12';
-import { el, fmtDate, PROJECT_TYPES } from '../lib.js?v=12';
-import { loadingBlock, errorBlock, viewHead, dataTable, select, field } from './ui.js?v=12';
+import { t } from '../i18n.js?v=13';
+import { el, fmtDate, PROJECT_TYPES } from '../lib.js?v=13';
+import { loadingBlock, errorBlock, viewHead, dataTable, select, field } from './ui.js?v=13';
 
 export async function render(ctx, view, _params, isCurrent) {
   view.replaceChildren(viewHead(t('nav.projects')), loadingBlock());
@@ -87,7 +87,18 @@ export async function render(ctx, view, _params, isCurrent) {
         again();
       },
     });
-    box.append(edit, toggle);
+    const remove = el('button', {
+      type: 'button', class: 'btn sm danger-outline', text: t('pj.delete'),
+      onclick: async () => {
+        if (!window.confirm(t('pj.deleteConfirm', { name: p.name }))) return;
+        remove.disabled = true;
+        const { data, error } = await ctx.sb.rpc('delete_project', { p_project_id: p.id });
+        if (error) { ctx.toast(t('err.generic')); remove.disabled = false; return; }
+        ctx.toast(data.reports_moved ? t('pj.deletedMoved', { n: data.reports_moved }) : t('pj.deleted'));
+        again();
+      },
+    });
+    box.append(edit, toggle, remove);
     return box;
   }
 

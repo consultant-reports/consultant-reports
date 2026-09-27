@@ -238,6 +238,10 @@ const en = {
   'pj.relink': 'Also link the {n} past report(s) that used this exact name',
   'pj.promoted': 'Added. {n} report(s) re-linked.',
   'pj.list': 'Project list',
+  'pj.delete': 'Delete',
+  'pj.deleteConfirm': 'Delete the project “{name}”? Reports that used it are kept and will show it under “Other” with the same name.',
+  'pj.deleted': 'Project deleted.',
+  'pj.deletedMoved': 'Project deleted. {n} report(s) kept under “Other”.',
 
   // consultants
   'cs.allowDevice': 'Allow new phone',
@@ -554,6 +558,10 @@ const ar = {
   'pj.relink': 'ربط التقارير السابقة ({n}) التي استخدمت هذا الاسم نفسه',
   'pj.promoted': 'تمت الإضافة. أُعيد ربط {n} تقرير.',
   'pj.list': 'قائمة المشاريع',
+  'pj.delete': 'حذف',
+  'pj.deleteConfirm': 'حذف المشروع «{name}»؟ التقارير اللي استخدمته تبقى محفوظة، وتظهر تحت «أخرى» بنفس الاسم.',
+  'pj.deleted': 'تم حذف المشروع.',
+  'pj.deletedMoved': 'تم حذف المشروع. {n} تقرير بقيت تحت «أخرى».',
 
   'cs.allowDevice': 'السماح بجوال جديد',
   'cs.deviceAllowed': 'مسموح بجوال جديد',
