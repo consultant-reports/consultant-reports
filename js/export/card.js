@@ -1,8 +1,8 @@
 // Builds the report card DOM (Section 10.1) and the PDF page-1 blocks.
 // The same builder feeds the dashboard detail view and the PDF, so they always match.
-import { t } from '../i18n.js?v=15';
-import { el, fmtDate, fmtTime } from '../lib.js?v=15';
-import { sanitizeReportHtml } from '../sanitize.js?v=15';
+import { t } from '../i18n.js?v=16';
+import { el, fmtTime, fmtIsoDay, reportDay, sentLabel } from '../lib.js?v=16';
+import { sanitizeReportHtml } from '../sanitize.js?v=16';
 
 export function cardProjectName(r, lang) {
   if (r.project_other_name) return `${r.project_other_name} (${t('card.other', {}, lang)})`;
@@ -29,8 +29,8 @@ export function buildCard(r, { photos = [], lang = 'en' } = {}) {
     el('div', { class: 'rcard-fields' },
       field(L('card.type'), r.project_type),
       field(L('card.project'), cardProjectName(r, lang), 'wide'),
-      field(L('card.date'), fmtDate(r.submitted_at)),
-      field(L('card.time'), fmtTime(r.submitted_at))));
+      field(L('card.date'), fmtIsoDay(reportDay(r))),
+      field(L('card.time'), sentLabel(r))));
 
   const body = el('div', { class: 'rbody', html: sanitizeReportHtml(r.body_html) });
   const details = el('div', { class: 'rcard-sec' },
@@ -97,8 +97,8 @@ export function buildSummaryTable(rows, startIndex, showDate) {
       el('td', { class: 'mob', text: r.consultant_mobile_snapshot }),
       el('td', { text: r.project_type }),
       el('td', { dir: 'auto', text: cardProjectName(r, 'en') }),
-      showDate ? el('td', { text: fmtDate(r.submitted_at) }) : null,
-      el('td', { text: fmtTime(r.submitted_at) })));
+      showDate ? el('td', { text: fmtIsoDay(reportDay(r)) }) : null,
+      el('td', { text: sentLabel(r) })));
   });
   table.append(tbody);
   return table;

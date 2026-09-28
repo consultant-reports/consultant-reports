@@ -3,9 +3,9 @@
 // so a card never splits: it moves whole to the next page when it does not fit.
 // A card taller than a page continues on the next page(s) under "<Name> — continued",
 // cutting only between paragraphs / photo rows.
-import { CONFIG } from '../config.js?v=15';
-import { el, fmtDateTime, isoDay, mapLimit } from '../lib.js?v=15';
-import { buildCard, buildContinued, buildTitleBlock, buildSummaryTable } from './card.js?v=15';
+import { CONFIG } from '../config.js?v=16';
+import { el, fmtDateTime, reportDay, mapLimit } from '../lib.js?v=16';
+import { buildCard, buildContinued, buildTitleBlock, buildSummaryTable } from './card.js?v=16';
 
 const PAGE_W = 210;
 const PAGE_H = 297;
@@ -137,7 +137,7 @@ export async function buildPdf({ reports, filterParts, loadPhotos, onProgress = 
 }
 
 function spansDays(reports) {
-  return new Set(reports.map((r) => isoDay(r.submitted_at))).size > 1;
+  return new Set(reports.map(reportDay)).size > 1;
 }
 
 /** Renders one block off-screen and records the y positions where it may be cut. */

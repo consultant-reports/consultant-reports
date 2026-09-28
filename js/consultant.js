@@ -1,11 +1,11 @@
 // Consultant app (Section 7): registration + Submit Report.
-import { CONFIG } from './config.js?v=15';
-import { t, applyI18n, bindLangToggle } from './i18n.js?v=15';
+import { CONFIG } from './config.js?v=16';
+import { t, applyI18n, bindLangToggle } from './i18n.js?v=16';
 import {
-  createSupabase, normalizeMobile, toWesternDigits, fmtDate, fmtTime, uuid, errorKey, PROJECT_TYPES, sleep,
-} from './lib.js?v=15';
-import { sanitizeReportHtml } from './sanitize.js?v=15';
-import { photoStore } from './idb.js?v=15';
+  createSupabase, normalizeMobile, toWesternDigits, fmtDate, fmtTime, isoDay, fmtIsoDay, uuid, errorKey, PROJECT_TYPES, sleep,
+} from './lib.js?v=16';
+import { sanitizeReportHtml } from './sanitize.js?v=16';
+import { photoStore } from './idb.js?v=16';
 
 const sb = createSupabase({ anonymous: true });
 const $ = (id) => document.getElementById(id);
@@ -37,6 +37,8 @@ const S = {
   otherName: '',
   photos: [],          // { id, order, blob, url, busy }
   reportId: null,      // generated once per report, so retries are idempotent
+  reportFor: 'today',  // 'today' | 'yesterday' (allowed until 12:00 Riyadh)
+  draftAt: null,       // when the draft was started (shown on a pending report)
   sent: null,          // frozen payload once sent: { html, type, projectId, otherName, slots }
   pending: null,       // { reportId, folder, submittedAt, expected, slots: [{ id, n }], uploaded: [n] }
   busy: false,
@@ -53,6 +55,25 @@ function show(id) {
   window.scrollTo(0, 0);
 }
 
+// In-page confirmation: some in-app browsers (WhatsApp, Instagram…) never show window.confirm.
+function askConfirm(text, yesLabel) {
+  return new Promise((resolve) => {
+    const box = $('confirmBox');
+    $('confirmText').textContent = text;
+    $('confirmYes').textContent = yesLabel || t('common.confirm');
+    box.hidden = false;
+    $('confirmNo').focus();
+    const done = (v) => {
+      box.hidden = true;
+      $('confirmYes').onclick = null;
+      $('confirmNo').onclick = null;
+      resolve(v);
+    };
+    $('confirmYes').onclick = () => done(true);
+    $('confirmNo').onclick = () => done(false);
+  });
+}
+
 function showMsg(node, text, kind) {
   node.textContent = text;
   if (kind) node.className = `msg ${kind}`;
@@ -62,6 +83,13 @@ function showMsg(node, text, kind) {
 // ---------------------------------------------------------------- boot
 
 async function boot() {
+  const REQUIRED = ['confirmBox', 'dayField', 'lastSent', 'discardBtn', 'regTip'];
+  if (REQUIRED.some((id) => !$(id))) {
+    // The browser mixed an old cached page with new scripts: reload once to get both new.
+    let tried = false;
+    try { tried = sessionStorage.getItem('dcr.reloaded') === '1'; sessionStorage.setItem('dcr.reloaded', '1'); } catch { /* ignore */ }
+    if (!tried) { location.reload(); return; }
+  }
   applyI18n();
   if (!window.Quill || !window.DOMPurify || !window.imageCompression || !window.supabase) {
     window.__dcrBooted = true;
@@ -153,6 +181,8 @@ function openRegister(mode) {
   $('regPairField').hidden = true;
   $('regPair').value = '';
   showMsg($('regError'), '');
+  const iphone = /iPhone|iPad|iPod/.test(navigator.userAgent) && !navigator.standalone;
+  showMsg($('regTip'), !edit && iphone ? t('reg.iphoneTip') : '', 'info');
   applyI18n($('screenRegister'));
   show('screenRegister');
 }
@@ -164,6 +194,7 @@ function wireRegister() {
     const name = $('regName').value.trim();
     const mobile = normalizeMobile($('regMobile').value);
     if (name.length < 2) return showMsg($('regError'), t('err.invalid_name'));
+    if (name.split(/\s+/).filter(Boolean).length < 2) return showMsg($('regError'), t('err.full_name'));
     if (!mobile) return showMsg($('regError'), t('err.invalid_mobile'));
 
     const btn = $('regSubmit');
@@ -289,8 +320,10 @@ async function logout() {
   let question = t('logout.confirm');
   if (S.pending || S.sent) question += `\n\n${t('logout.pending')}`;
   else if (hasDraft) question += `\n\n${t('logout.draft')}`;
-  question += `\n\n${t('logout.deviceLock')}`;
-  if (!window.confirm(question)) return;
+  if (!(await askConfirm(question, t('rep.logout')))) return;
+  try {
+    await sb.rpc('sign_out_device', { p_consultant_id: S.me.consultant_id, p_device_token: S.me.device_token });
+  } catch { /* offline: the phone simply stays linked */ }
   await clearDraft();
   if (quill) resetForm();
   forgetMe();
@@ -303,12 +336,31 @@ function notice(text, kind) {
   showMsg($('noticeBox'), text, kind);
 }
 
+function projectLabelOf(sent) {
+  if (!sent) return '';
+  if (sent.otherName) return sent.otherName;
+  return S.projects.find((x) => x.id === sent.projectId)?.name ?? '';
+}
+
+function renderLastSent() {
+  const last = load('dcr.lastSent');
+  const box = $('lastSent');
+  if (!last || !S.me || last.owner !== S.me.consultant_id) { box.hidden = true; return; }
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: CONFIG.TIMEZONE }).format(new Date());
+  const sentDay = new Intl.DateTimeFormat('en-CA', { timeZone: CONFIG.TIMEZONE }).format(new Date(last.at));
+  const when = sentDay === today ? `${t('rep.today')} ${fmtTime(last.at)}` : `${fmtDate(last.at)} ${fmtTime(last.at)}`;
+  box.textContent = `✓ ${t('rep.lastSent')}: ${when}${last.project ? ` · ${last.project}` : ''}`;
+  box.hidden = false;
+}
+
 async function enterReport() {
   $('idName').textContent = S.me.full_name;
   $('idMobile').textContent = S.me.mobile;
   showMsg($('noticeBox'), '');
   initEditor();
   renderProjects();
+  renderDayField();
+  renderLastSent();
   show('screenReport');
   await restoreDraft();
 }
@@ -329,6 +381,12 @@ function initEditor() {
       ],
       uploader: { mimetypes: [] },
     },
+  });
+  quill.clipboard.addMatcher(Node.ELEMENT_NODE, (node, delta) => {
+    delta.ops.forEach((op) => {
+      if (op.attributes) { delete op.attributes.color; delete op.attributes.background; }
+    });
+    return delta;
   });
   let timer;
   quill.on('text-change', () => {
@@ -356,8 +414,17 @@ function wireReport() {
   $('otherName').addEventListener('input', (e) => {
     S.otherName = e.target.value;
     hideErr('errOther');
+    renderSuggestions();
     saveDraft();
   });
+  document.querySelectorAll('.day-btn').forEach((b) => {
+    b.addEventListener('click', () => {
+      if (locked() || S.busy) return;
+      setReportFor(b.dataset.for);
+      saveDraft();
+    });
+  });
+  $('discardBtn').addEventListener('click', discardUnsent);
   $('photoCamera').addEventListener('change', onPhotosPicked);
   $('photoGallery').addEventListener('change', onPhotosPicked);
   $('reportForm').addEventListener('submit', (e) => { e.preventDefault(); submit(); });
@@ -367,8 +434,65 @@ function wireReport() {
   $('finishBtn').addEventListener('click', finishWithoutRemaining);
   $('anotherBtn').addEventListener('click', () => {
     resetForm();
+    renderDayField();
+    renderLastSent();
     show('screenReport');
   });
+}
+
+function setReportFor(v) {
+  S.reportFor = v === 'yesterday' && yesterdayOpen() ? 'yesterday' : 'today';
+  document.querySelectorAll('.day-btn').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.for === S.reportFor)));
+}
+
+// "Yesterday" is offered until 12:00 Riyadh time (the server checks it too).
+function yesterdayOpen() {
+  const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: CONFIG.TIMEZONE, hour: '2-digit', hourCycle: 'h23' }).format(new Date()));
+  return hour < 12;
+}
+
+function renderDayField() {
+  const open = yesterdayOpen();
+  $('dayField').hidden = !open;
+  if (!open && S.reportFor === 'yesterday' && !S.sent) setReportFor('today');
+}
+
+// "Other": suggest existing projects of every type as the engineer types.
+const squash = (v) => toWesternDigits(String(v ?? '')).toLowerCase().replace(/[\s\-_./()]+/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+function renderSuggestions() {
+  const ul = $('otherSuggest');
+  const q = squash(S.otherName);
+  const hits = q.length < 3 ? [] : S.projects.filter((p) => {
+    const n = squash(p.name);
+    return n.includes(q) || q.includes(n);
+  }).slice(0, 5);
+  ul.replaceChildren();
+  if (!hits.length) { ul.hidden = true; return; }
+  const title = document.createElement('li');
+  title.className = 'title';
+  title.textContent = t('rep.suggest');
+  ul.append(title);
+  hits.forEach((p) => {
+    const li = document.createElement('li');
+    li.tabIndex = 0;
+    const type = document.createElement('span');
+    type.className = 'type';
+    type.textContent = p.type;
+    li.append(p.name, type);
+    const pick = () => {
+      setType(p.type);
+      S.projectId = p.id;
+      S.otherName = '';
+      $('otherName').value = '';
+      renderProjects();
+      ul.hidden = true;
+      saveDraft();
+    };
+    li.addEventListener('click', pick);
+    li.addEventListener('keydown', (e) => { if (e.key === 'Enter') pick(); });
+    ul.append(li);
+  });
+  ul.hidden = false;
 }
 
 function setType(type) {
@@ -415,7 +539,9 @@ async function onPhotosPicked(ev) {
   if (!files.length || locked() || S.busy) return;
 
   const room = CONFIG.MAX_PHOTOS - S.photos.length;
-  $('photoHint').textContent = files.length > room ? t('rep.photos.max', { n: CONFIG.MAX_PHOTOS }) : '';
+  $('photoHint').textContent = files.length > room
+    ? t('rep.photos.maxKept', { n: CONFIG.MAX_PHOTOS, k: Math.max(0, room), m: files.length }) : '';
+  let failed = 0;
   const accepted = files.slice(0, Math.max(0, room));
 
   const items = accepted.map((file, i) => ({ id: uuid(), order: Date.now() + i, busy: true, file }));
@@ -440,7 +566,8 @@ async function onPhotosPicked(ev) {
       await photoStore.put({ id: item.id, order: item.order, blob });
     } catch {
       S.photos = S.photos.filter((p) => p !== item);
-      $('photoHint').textContent = t('rep.photos.failed');
+      failed += 1;
+      $('photoHint').textContent = t('rep.photos.failedN', { n: failed });
     }
     renderThumbs();
   }
@@ -492,8 +619,11 @@ function removePhoto(p) {
 
 function saveDraft() {
   if (!quill) return;
+  S.draftAt ??= new Date().toISOString();
   save(LS.draft, {
     owner: S.me?.consultant_id ?? null,
+    draftAt: S.draftAt,
+    reportFor: S.reportFor,
     type: S.type,
     projectId: S.projectId,
     otherName: S.otherName,
@@ -520,6 +650,8 @@ async function restoreDraft() {
     S.otherName = d.otherName ?? '';
     S.reportId = d.reportId ?? null;
     S.sent = d.sent ?? null;
+    S.draftAt = d.draftAt ?? null;
+    setReportFor(d.reportFor);
     S.pending = d.pending?.slots ? d.pending : null; // drafts from older versions restart cleanly
     if (d.pending && !d.pending.slots) S.sent = null;
     setType(d.type);
@@ -531,7 +663,8 @@ async function restoreDraft() {
   applyLock();
 
   const hasContent = (d && (quill.getText().trim() || d.type)) || S.photos.length;
-  if (S.pending || S.sent) $('pendingBox').hidden = false;
+  renderPending();
+  if (S.pending || S.sent) { /* the pending box explains the state */ }
   else if (hasContent) notice(t('rep.draftRestored'), 'info');
 }
 
@@ -549,6 +682,8 @@ function resetForm() {
   S.reportId = null;
   S.sent = null;
   S.pending = null;
+  S.draftAt = null;
+  setReportFor('today');
   quill.setContents([], 'silent');
   $('otherName').value = '';
   $('photoHint').textContent = '';
@@ -577,6 +712,29 @@ function applyLock() {
   $('reportForm').setAttribute('aria-busy', String(lock || S.busy));
   $('submitBtn').textContent = lock ? t('common.retry') : t('rep.submit');
   $('finishBtn').hidden = !S.pending || S.busy;
+  renderPending();
+}
+
+// Two different situations, two different messages:
+//  sent but NOT confirmed → the report may not be on the server: Retry, or discard it.
+//  confirmed (pending)    → the report is saved; only photos are left.
+function renderPending() {
+  const box = $('pendingBox');
+  if (!S.sent && !S.pending) { box.hidden = true; return; }
+  box.hidden = false;
+  box.className = `msg ${S.pending ? 'warn' : 'error'}`;
+  $('pendingTitle').textContent = t(S.pending ? 'pending.title' : 'pending.unsentTitle');
+  $('pendingHint').textContent = t(S.pending ? 'pending.hint' : 'pending.unsentHint');
+  $('pendingDate').textContent = S.draftAt ? t('pending.writtenOn', { d: `${fmtDate(S.draftAt)} ${fmtTime(S.draftAt)}` }) : '';
+  $('discardBtn').hidden = !!S.pending || !S.sent || S.busy;
+}
+
+async function discardUnsent() {
+  if (S.busy || S.pending || !S.sent) return;
+  if (!(await askConfirm(t('pending.discardConfirm'), t('pending.discard')))) return;
+  await clearDraft();
+  resetForm();
+  notice(t('pending.discarded'), 'info');
 }
 
 // ---------------------------------------------------------------- submit
@@ -626,8 +784,12 @@ async function submit() {
   try {
     if (S.photos.some((p) => p.busy)) {
       // Wait for compression to finish rather than dropping photos.
-      progress(t('rep.photos.processing'), 0.02);
-      while (S.photos.some((p) => p.busy)) await sleep(200);
+      while (S.photos.some((p) => p.busy)) {
+        const total = S.photos.length;
+        const ready = S.photos.filter((p) => !p.busy).length;
+        progress(t('rep.photos.preparingN', { i: Math.min(ready + 1, total), n: total }), 0.02 + 0.03 * (ready / total));
+        await sleep(200);
+      }
     }
 
     if (!S.pending) {
@@ -641,6 +803,7 @@ async function submit() {
           type: S.type,
           projectId: S.projectId === 'other' ? null : S.projectId,
           otherName: S.projectId === 'other' ? S.otherName.trim() : null,
+          reportFor: S.reportFor,
           slots: photos.map((p, i) => ({ id: p.id, n: i + 1 })),
         };
         saveDraft();
@@ -658,10 +821,11 @@ async function submit() {
         p_body_html: S.sent.html,
         p_body_text: null,
         p_photos_expected: S.sent.slots.length,
+        p_report_for: S.sent.reportFor ?? 'today',
       });
       if (error) throw error;
       S.pending = {
-        reportId: data.report_id, folder: data.folder, submittedAt: data.submitted_at,
+        reportId: data.report_id, folder: data.folder, submittedAt: data.submitted_at, reportDate: data.report_date,
         expected: data.photos_expected,
         // Only the slots the server accepted (it keeps the first submission's count).
         slots: S.sent.slots.filter((s) => s.n <= data.photos_expected),
@@ -673,7 +837,11 @@ async function submit() {
     await uploadPhotos();
     await finish(false);
   } catch (e) {
-    const key = uploadRefused(e) ? 'err.upload_refused' : errorKey(e);
+    let key = uploadRefused(e) ? 'err.upload_refused' : errorKey(e);
+    if (key === 'err.upload_refused' && S.pending
+        && Date.now() - new Date(S.pending.submittedAt).getTime() < 3 * 86400000) {
+      key = 'err.upload_storage'; // inside the upload window: the storage is full — keep the photos, retry later
+    }
     if (key === 'err.unknown_consultant' || key === 'err.device_not_recognized') {
       forgetMe();
       S.busy = false;
@@ -683,7 +851,8 @@ async function submit() {
     }
     if (key === 'err.invalid_project' || key === 'err.invalid_project_type' || key === 'err.bad_html'
         || key === 'err.empty_report' || key === 'err.daily_limit' || key === 'err.too_long'
-        || key === 'err.report_conflict' || key === 'err.storage_full') {
+        || key === 'err.report_conflict' || key === 'err.storage_full' || key === 'err.too_short'
+        || key === 'err.duplicate_report' || key === 'err.yesterday_closed') {
       // The server refused the report itself: unfreeze the form so it can be corrected.
       S.sent = null;
       S.reportId = null;
@@ -750,20 +919,24 @@ async function finish(force) {
   }
   const when = p.submittedAt;
   const short = Math.max(0, p.expected - count);
+  S.lastProjectLabel = projectLabelOf(S.sent);
   await clearDraft();
   S.busy = false;
   resetForm();
   $('okDate').textContent = fmtDate(when);
   $('okTime').textContent = fmtTime(when);
+  if (p.reportDate && p.reportDate !== isoDay(when)) {
+    $('okDate').textContent += ` · ${t('ok.forDay', { d: fmtIsoDay(p.reportDate) })}`;
+  }
+  const project = S.lastProjectLabel || '';
+  save('dcr.lastSent', { at: when, reportDate: p.reportDate, project, owner: S.me.consultant_id });
   showMsg($('okWarn'), short ? t('ok.photosShort', { n: short }) : '', 'warn');
-  const iphone = /iPhone|iPad|iPod/.test(navigator.userAgent) && !navigator.standalone;
-  showMsg($('okTip'), iphone ? t('ok.iphoneTip') : '', 'info');
   show('screenSuccess');
 }
 
 async function finishWithoutRemaining() {
   if (S.busy || !S.pending) return;
-  if (!window.confirm(t('pending.finishConfirm'))) return;
+  if (!(await askConfirm(t('pending.finishConfirm'), t('pending.finish')))) return;
   S.busy = true;
   applyLock();
   try {

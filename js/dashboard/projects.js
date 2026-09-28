@@ -1,7 +1,7 @@
 // Projects management (Section 8.4): add, edit, deactivate; promote "Other" names.
-import { t } from '../i18n.js?v=15';
-import { el, fmtDate, PROJECT_TYPES } from '../lib.js?v=15';
-import { loadingBlock, errorBlock, viewHead, dataTable, select, field } from './ui.js?v=15';
+import { t } from '../i18n.js?v=16';
+import { el, fmtDate, PROJECT_TYPES } from '../lib.js?v=16';
+import { loadingBlock, errorBlock, viewHead, dataTable, select, field } from './ui.js?v=16';
 
 export async function render(ctx, view, _params, isCurrent) {
   view.replaceChildren(viewHead(t('nav.projects')), loadingBlock());
@@ -138,7 +138,31 @@ export async function render(ctx, view, _params, isCurrent) {
             el('button', { type: 'button', class: 'btn sm', text: t('common.cancel'), onclick: () => box.replaceChildren(start) })));
       },
     });
-    box.append(start);
+    const link = el('button', {
+      type: 'button', class: 'btn sm', text: t('pj.linkExisting'),
+      onclick: () => {
+        const opts = projs.data.map((p) => ({ label: `${p.name} · ${p.type}`, value: p.id }));
+        if (!opts.length) return;
+        let target = opts[0].value;
+        box.replaceChildren(
+          select(opts, target, (v) => { target = v; }),
+          el('div', { class: 'actions', style: 'margin-top:6px' },
+            el('button', {
+              type: 'button', class: 'btn sm primary', text: t('pj.linkGo'),
+              onclick: async (e) => {
+                e.target.disabled = true;
+                const { data, error } = await ctx.sb.rpc('link_other_to_project', {
+                  p_type: o.project_type, p_name: o.name, p_project_id: target,
+                });
+                if (error) { ctx.toast(t('err.generic')); e.target.disabled = false; return; }
+                ctx.toast(t('pj.promoted', { n: data.relinked }));
+                again();
+              },
+            }),
+            el('button', { type: 'button', class: 'btn sm', text: t('common.cancel'), onclick: () => box.replaceChildren(start, link) })));
+      },
+    });
+    box.append(start, link);
     return box;
   }
 

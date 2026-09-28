@@ -48,11 +48,13 @@ jobs:
           exit 1
 
       - name: Check out
-        uses: actions/checkout@v4
+        if: always()
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
       - name: Keep the schedule enabled
+        if: always()
         run: |
           last=$(git log -1 --format=%ct)
           now=$(date +%s)

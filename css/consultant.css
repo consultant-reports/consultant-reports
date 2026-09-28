@@ -81,3 +81,19 @@ form[aria-busy="true"] .type-btn, form[aria-busy="true"] .photo-actions, form[ar
 .pair-box { text-align: center; }
 .pair-code { font-size: 34px; font-weight: 700; letter-spacing: .12em; color: var(--accent); margin: 8px 0; direction: ltr; font-variant-numeric: tabular-nums; }
 #regPair { font-size: 22px; letter-spacing: .2em; text-align: center; }
+
+.last-sent { font-size: 14px; color: var(--ok); background: var(--ok-bg); border: 1px solid #c3dfd0; border-radius: 8px; padding: 8px 12px; margin: -6px 0 14px; }
+.day-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.day-btn { min-height: 48px; border-radius: var(--radius); border: 2px solid var(--line); background: var(--surface); font-weight: 600; cursor: pointer; }
+.day-btn[aria-checked="true"] { border-color: var(--accent); background: var(--band); color: var(--accent); }
+.suggest { list-style: none; margin: 6px 0 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow: hidden; }
+.suggest li { padding: 10px 12px; border-bottom: 1px solid #e3eaf1; cursor: pointer; }
+.suggest li:last-child { border-bottom: 0; }
+.suggest li:hover, .suggest li:focus { background: var(--band); outline: none; }
+.suggest .title { font-size: 13px; color: var(--muted); padding: 6px 12px; cursor: default; background: var(--zebra); }
+.suggest .type { color: var(--muted); font-size: 13px; margin-inline-start: 6px; }
+#discardBtn { display: block; margin-top: 10px; color: var(--danger); }
+#pendingDate { margin-top: 4px; }
+.confirm-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(15, 22, 30, .55); display: grid; place-items: center; padding: 16px; }
+.confirm-panel { background: var(--surface); border-radius: 12px; padding: 18px; max-width: 460px; width: 100%; box-shadow: 0 12px 36px rgba(0,0,0,.25); }
+.confirm-panel p { margin: 0 0 16px; white-space: pre-line; line-height: 1.6; }

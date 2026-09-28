@@ -1,13 +1,13 @@
 // Dashboard shell: sign-in, role check, hash router, shared helpers.
-import { t, applyI18n, bindLangToggle } from '../i18n.js?v=15';
-import { createSupabase, el } from '../lib.js?v=15';
-import * as today from './today.js?v=15';
-import * as reports from './reports.js?v=15';
-import * as detail from './detail.js?v=15';
-import * as projects from './projects.js?v=15';
-import * as consultants from './consultants.js?v=15';
-import * as storage from './storage.js?v=15';
-import * as admin from './admin.js?v=15';
+import { t, applyI18n, bindLangToggle } from '../i18n.js?v=16';
+import { createSupabase, el } from '../lib.js?v=16';
+import * as today from './today.js?v=16';
+import * as reports from './reports.js?v=16';
+import * as detail from './detail.js?v=16';
+import * as projects from './projects.js?v=16';
+import * as consultants from './consultants.js?v=16';
+import * as storage from './storage.js?v=16';
+import * as admin from './admin.js?v=16';
 
 const $ = (id) => document.getElementById(id);
 
@@ -150,7 +150,7 @@ $('forgotBtn').addEventListener('click', async () => {
     const limited = /rate|limit|seconds/i.test(error.message);
     return showLogin(t(limited ? 'auth.forgotLimit' : 'err.generic'));
   }
-  showLogin(null, t('auth.forgotSent'));
+  showLogin(null, t('auth.forgotSentOwner'));
 });
 
 $('recoveryForm').addEventListener('submit', async (e) => {
@@ -252,6 +252,11 @@ function route() {
 }
 
 async function boot() {
+  if (['changePwBtn', 'recoveryCancel', 'currentPasswordField'].some((id) => !$(id))) {
+    let tried = false;
+    try { tried = sessionStorage.getItem('dcr.reloaded') === '1'; sessionStorage.setItem('dcr.reloaded', '1'); } catch { /* ignore */ }
+    if (!tried) { location.reload(); return; }
+  }
   window.__dcrBooted = true;
   applyI18n();
   bindLangToggle($('langToggle'));

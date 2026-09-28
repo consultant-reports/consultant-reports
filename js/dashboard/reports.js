@@ -1,14 +1,14 @@
 // Reports list (Section 8.2) with combinable filters, pagination and exports (8.6).
-import { CONFIG } from '../config.js?v=15';
-import { t, getLang } from '../i18n.js?v=15';
-import { el, fmtDate, fmtTime, PROJECT_TYPES } from '../lib.js?v=15';
+import { CONFIG } from '../config.js?v=16';
+import { t, getLang } from '../i18n.js?v=16';
+import { el, fmtIsoDay, reportDay, sentLabel, PROJECT_TYPES } from '../lib.js?v=16';
 import {
   LIST_COLS, applyFilters, fetchAllReports, photoLoader, exportRange, exportBaseName, filterParts, saveBlob,
-} from '../export/data.js?v=15';
-import { cardProjectName } from '../export/card.js?v=15';
-import { buildPdf } from '../export/pdf.js?v=15';
-import { buildExcel } from '../export/excel.js?v=15';
-import { loadingBlock, errorBlock, viewHead, dataTable, combo, select, field, progressBar } from './ui.js?v=15';
+} from '../export/data.js?v=16';
+import { cardProjectName } from '../export/card.js?v=16';
+import { buildPdf } from '../export/pdf.js?v=16';
+import { buildExcel } from '../export/excel.js?v=16';
+import { loadingBlock, errorBlock, viewHead, dataTable, combo, select, field, progressBar } from './ui.js?v=16';
 
 export async function render(ctx, view, _params, isCurrent) {
   const st = (ctx.state.reports ??= { f: {}, page: 0 });
@@ -108,6 +108,7 @@ export async function render(ctx, view, _params, isCurrent) {
     const from = st.page * CONFIG.PAGE_SIZE;
     const { data, count, error } = await applyFilters(
       ctx.sb.from('reports').select(LIST_COLS, { count: 'exact' }), f)
+      .order('report_date', { ascending: false })
       .order('submitted_at', { ascending: false })
       .range(from, from + CONFIG.PAGE_SIZE - 1);
     if (!isCurrent() || seq !== loadSeq) return;
@@ -125,8 +126,8 @@ export async function render(ctx, view, _params, isCurrent) {
         { label: t('col.mobile'), cls: 'mob', render: (r) => r.consultant_mobile_snapshot },
         { label: t('col.type'), render: (r) => el('span', { class: 'pill', text: r.project_type }) },
         { label: t('col.project'), render: (r) => el('span', { dir: 'auto', text: cardProjectName(r, getLang()) }) },
-        { label: t('col.date'), cls: 'num', render: (r) => fmtDate(r.submitted_at) },
-        { label: t('col.time'), cls: 'num', render: (r) => fmtTime(r.submitted_at) },
+        { label: t('col.date'), cls: 'num', render: (r) => fmtIsoDay(reportDay(r)) },
+        { label: t('col.time'), cls: 'num', render: (r) => sentLabel(r) },
         {
           label: t('col.photos'), cls: 'num',
           render: (r) => (r.photos_expected > r.photo_count

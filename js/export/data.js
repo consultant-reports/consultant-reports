@@ -1,10 +1,10 @@
 // Report queries shared by the list, exports and the archive.
-import { CONFIG } from '../config.js?v=15';
-import { dayStart, dayEndExclusive, isoDay, mapLimit, fmtIsoDay } from '../lib.js?v=15';
-import { sortedPhotos } from './excel.js?v=15';
+import { CONFIG } from '../config.js?v=16';
+import { mapLimit, fmtIsoDay, reportDay } from '../lib.js?v=16';
+import { sortedPhotos } from './excel.js?v=16';
 
 export const LIST_COLS =
-  'id, consultant_id, consultant_name_snapshot, consultant_mobile_snapshot, project_type, project_id, project_other_name, photo_count, photos_expected, submitted_at, projects(name)';
+  'id, consultant_id, consultant_name_snapshot, consultant_mobile_snapshot, project_type, project_id, project_other_name, photo_count, photos_expected, submitted_at, report_date, projects(name)';
 export const FULL_COLS = `${LIST_COLS}, body_html, body_text, report_photos(storage_path, size_bytes, sort_order)`;
 
 /** f: { consultantId, type, project: 'p:<uuid>' | 'o:<name>', from, to } */
@@ -13,8 +13,8 @@ export function applyFilters(q, f = {}) {
   if (f.type) q = q.eq('project_type', f.type);
   if (f.project?.startsWith('p:')) q = q.eq('project_id', f.project.slice(2));
   if (f.project?.startsWith('o:')) q = q.eq('project_other_name', f.project.slice(2)).is('project_id', null);
-  if (f.from) q = q.gte('submitted_at', dayStart(f.from));
-  if (f.to) q = q.lt('submitted_at', dayEndExclusive(f.to));
+  if (f.from) q = q.gte('report_date', f.from);
+  if (f.to) q = q.lte('report_date', f.to);
   return q;
 }
 
@@ -24,6 +24,7 @@ export async function fetchAllReports(sb, f, onProgress = () => {}) {
   const out = [];
   for (let from = 0; ; from += BATCH) {
     const { data, error } = await applyFilters(sb.from('reports').select(FULL_COLS), f)
+      .order('report_date', { ascending: true })
       .order('submitted_at', { ascending: true })
       .range(from, from + BATCH - 1);
     if (error) throw error;
@@ -60,8 +61,9 @@ export async function downloadWithRetry(sb, path, tries = 3) {
 
 /** File-name range: the filter dates, or the first/last report day. */
 export function exportRange(f, reports) {
-  const from = f.from ?? (reports.length ? isoDay(reports[0].submitted_at) : null);
-  const to = f.to ?? (reports.length ? isoDay(reports[reports.length - 1].submitted_at) : null);
+  const days = reports.map(reportDay).sort();
+  const from = f.from ?? days[0] ?? null;
+  const to = f.to ?? days[days.length - 1] ?? null;
   return { from, to };
 }
 

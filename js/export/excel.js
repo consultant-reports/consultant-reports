@@ -1,6 +1,6 @@
 // Excel export (Section 10.2): one sheet, one row per report, no special styling.
-import { fmtTime, isoDay, photoArchivePath } from '../lib.js?v=15';
-import { cardProjectName } from './card.js?v=15';
+import { reportDay, sentLabel, photoArchivePath } from '../lib.js?v=16';
+import { cardProjectName } from './card.js?v=16';
 
 const MAX_CELL = 32000; // Excel's hard limit is 32,767 characters per cell.
 
@@ -30,8 +30,8 @@ export function buildExcel(reports, names = assignPhotoNames(reports)) {
   const rows = reports.map((r) => {
     const photos = sortedPhotos(r);
     return [
-      { t: 'd', v: new Date(`${isoDay(r.submitted_at)}T00:00:00Z`), z: 'dd mmm yyyy' },
-      fmtTime(r.submitted_at),
+      { t: 'd', v: new Date(`${reportDay(r)}T00:00:00Z`), z: 'dd mmm yyyy' },
+      sentLabel(r),
       r.consultant_name_snapshot,
       r.consultant_mobile_snapshot,
       r.project_type,

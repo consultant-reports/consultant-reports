@@ -1,8 +1,8 @@
 // Consultants (Section 8.5): registrations, last submission, Active toggle,
 // plus the team access code (manager may change it) and releasing a phone.
-import { t } from '../i18n.js?v=15';
-import { el, fmtDate, fmtDateTime, errorKey } from '../lib.js?v=15';
-import { loadingBlock, errorBlock, viewHead, dataTable, field } from './ui.js?v=15';
+import { t } from '../i18n.js?v=16';
+import { el, fmtDate, fmtDateTime, errorKey } from '../lib.js?v=16';
+import { loadingBlock, errorBlock, viewHead, dataTable, field, select } from './ui.js?v=16';
 
 export async function render(ctx, view, _params, isCurrent) {
   view.replaceChildren(viewHead(t('nav.consultants')), loadingBlock());
@@ -17,6 +17,16 @@ export async function render(ctx, view, _params, isCurrent) {
     return;
   }
   const data = list.data;
+  // Flag names that look like the same person registered twice (spelling/spacing variants).
+  const norm = (v) => String(v).toLowerCase().replace(/[\s.\-_]+/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
+    .replace(/^(eng|م|المهندس|مهندس)/, '');
+  const similar = new Map();
+  data.forEach((a) => data.forEach((b) => {
+    if (a.id === b.id) return;
+    const x = norm(a.full_name);
+    const y = norm(b.full_name);
+    if (x.length >= 4 && (x === y || x.startsWith(y) || y.startsWith(x))) similar.set(a.id, b.full_name);
+  }));
   const mode = codeRes.data.access_mode;
 
   // ---------------------------------------------------------------- team code
@@ -46,7 +56,14 @@ export async function render(ctx, view, _params, isCurrent) {
 
   // ---------------------------------------------------------------- list
   const columns = [
-    { label: t('col.name'), cls: 'name', render: (c) => el('span', { dir: 'auto', text: c.full_name }) },
+    {
+      label: t('col.name'), cls: 'name',
+      render: (c) => {
+        const twin = similar.get(c.id);
+        return el('span', {}, el('span', { dir: 'auto', text: c.full_name }),
+          twin ? el('div', { class: 'pill warn', style: 'margin-top:4px', text: t('cs.similar', { name: twin }) }) : null);
+      },
+    },
     { label: t('col.mobile'), cls: 'mob', render: (c) => el('a', { href: `tel:${c.mobile}`, text: c.mobile }) },
     { label: t('col.registered'), cls: 'num', render: (c) => fmtDate(c.created_at) },
     { label: t('col.lastSubmission'), cls: 'num', render: (c) => (c.last_submitted_at ? fmtDateTime(c.last_submitted_at) : el('span', { class: 'muted', text: t('cs.never') })) },
@@ -84,11 +101,17 @@ export async function render(ctx, view, _params, isCurrent) {
             },
           }));
         }
-        if (c.allow_new_device) {
-          // Waiting for the consultant to register on the new phone: tell them on WhatsApp.
-          box.append(el('span', { class: 'pill', text: t('cs.deviceAllowed') }), whatsappLink(c), el('button', {
+        if (c.allow_active) {
+          // Waiting for the consultant to register on the new device: tell them on WhatsApp.
+          box.append(el('span', { class: 'pill', text: t('cs.deviceAllowedUntil', { h: hoursLeft(c.allow_new_device_at) }) }), whatsappLink(c), el('button', {
             type: 'button', class: 'btn sm', text: t('cs.cancelAllow'),
             onclick: () => setAllow(c, false),
+          }));
+        } else if (c.allow_new_device) {
+          // Expired: the server no longer honours it — say so and offer it again.
+          box.append(el('span', { class: 'pill warn', text: t('cs.allowExpired') }), el('button', {
+            type: 'button', class: 'btn sm', text: t('cs.allowAgain'),
+            onclick: () => setAllow(c, true),
           }));
         } else {
           box.append(el('button', {
@@ -103,11 +126,39 @@ export async function render(ctx, view, _params, isCurrent) {
       label: '',
       render: (c) => el('div', { class: 'actions' },
         el('button', { type: 'button', class: 'btn sm', text: t('common.edit'), onclick: (e) => editRow(c, e.target.closest('tr')) }),
+        el('button', { type: 'button', class: 'btn sm', text: t('cs.merge'), onclick: (e) => mergeRow(c, e.target.closest('tr')) }),
         el('button', { type: 'button', class: 'btn sm danger-outline', text: t('cs.delete'), onclick: (e) => removeConsultant(c, e.target) })),
     },
   ];
 
   // ---------------------------------------------------------------- row actions
+  function hoursLeft(at) {
+    return Math.max(1, Math.ceil((new Date(at).getTime() + 86400000 - Date.now()) / 3600000));
+  }
+
+  function mergeRow(c, tr) {
+    const others = data.filter((x) => x.id !== c.id);
+    if (!others.length) return;
+    let target = others[0].id;
+    const sel = select(others.map((x) => ({ label: `${x.full_name} · ${x.mobile}`, value: x.id })), target, (v) => { target = v; });
+    const go = el('button', {
+      type: 'button', class: 'btn sm primary', text: t('cs.mergeGo'),
+      onclick: async () => {
+        const into = others.find((x) => x.id === target);
+        if (!window.confirm(t('cs.mergeConfirm', { from: c.full_name, into: into.full_name, n: c.reports }))) return;
+        go.disabled = true;
+        const { data: res, error: err } = await ctx.sb.rpc('merge_consultants', { p_from: c.id, p_into: target });
+        go.disabled = false;
+        if (err) { ctx.toast(t(errorKey(err))); return; }
+        ctx.toast(t('cs.merged', { n: res.reports_moved }));
+        again();
+      },
+    });
+    tr.replaceChildren(el('td', { colspan: tr.children.length },
+      el('p', { class: 'small', style: 'margin:0 0 8px', text: t('cs.mergeHint', { name: c.full_name }) }),
+      el('div', { class: 'inline-form' }, field(t('cs.mergeInto'), sel), go,
+        el('button', { type: 'button', class: 'btn sm', text: t('common.cancel'), onclick: again }))));
+  }
   async function setAllow(c, allow) {
     const { error: err } = await ctx.sb.from('consultants').update({ allow_new_device: allow }).eq('id', c.id);
     if (err) { ctx.toast(t('err.generic')); return; }
@@ -187,7 +238,20 @@ export async function render(ctx, view, _params, isCurrent) {
   view.lastChild.replaceWith(el('div', {},
     el('h2', { class: 'section', style: 'margin-top:0', text: t('ad.teamCode') }),
     codePanel,
-    el('h2', { class: 'section', text: t('nav.consultants') }),
+    el('div', { class: 'view-head', style: 'margin:28px 0 10px' },
+      el('h2', { class: 'section', style: 'margin:0;flex:1', text: t('nav.consultants') }),
+      el('button', {
+        type: 'button', class: 'btn sm', text: t('cs.allowAll'),
+        onclick: async (e) => {
+          if (!window.confirm(t('cs.allowAllConfirm'))) return;
+          e.target.disabled = true;
+          const { data: n, error: err } = await ctx.sb.rpc('allow_new_device_all');
+          e.target.disabled = false;
+          if (err) { ctx.toast(t('err.generic')); return; }
+          ctx.toast(t('cs.allowAllDone', { n }));
+          again();
+        },
+      })),
     el('p', { class: 'muted small section-hint', text: t('cs.hint') }),
     dataTable({ rows: data, columns })));
 }

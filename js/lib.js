@@ -1,6 +1,6 @@
 // Shared helpers: Supabase client, dates in Asia/Riyadh, mobile numbers, file names.
 // supabase-js 2.117.2 comes from vendor/supabase.js (a plain script loaded before this module).
-import { CONFIG } from './config.js?v=15';
+import { CONFIG } from './config.js?v=16';
 
 // The consultant page must always act as anonymous, even if a manager is
 // signed in to the dashboard in the same browser — so it never persists a session.
@@ -48,6 +48,15 @@ export function fmtTime(value) {
   const p = riyadhParts(value);
   return `${p.h}:${p.min}`;
 }
+/** The day a report is for (report_date), falling back to the day it was sent. */
+export function reportDay(r) {
+  return r.report_date ?? isoDay(r.submitted_at);
+}
+/** Time sent; with the date too when it was sent on another day than the report is for. */
+export function sentLabel(r) {
+  return reportDay(r) === isoDay(r.submitted_at) ? fmtTime(r.submitted_at) : `${fmtDate(r.submitted_at)} ${fmtTime(r.submitted_at)}`;
+}
+
 export function fmtDateTime(value) {
   return `${fmtDate(value)}, ${fmtTime(value)}`;
 }
@@ -103,12 +112,15 @@ export function toWesternDigits(s) {
 
 /** Returns +9665XXXXXXXX or null. Mirrors public.normalize_mobile() in the database. */
 export function normalizeMobile(input) {
-  const d = toWesternDigits(input).replace(/[\s\-().]/g, '');
+  // Numbers copied from WhatsApp/Contacts carry invisible direction marks: remove them too.
+  const d = toWesternDigits(input).replace(/[\s\-().\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '');
   if (/^05\d{8}$/.test(d)) return '+966' + d.slice(1);
   if (/^5\d{8}$/.test(d)) return '+966' + d;
   if (/^\+9665\d{8}$/.test(d)) return d;
+  if (/^\+96605\d{8}$/.test(d)) return '+966' + d.slice(5);
   if (/^9665\d{8}$/.test(d)) return '+' + d;
   if (/^009665\d{8}$/.test(d)) return '+' + d.slice(2);
+  if (/^0096605\d{8}$/.test(d)) return '+966' + d.slice(6);
   return null;
 }
 
@@ -203,7 +215,8 @@ export function errorKey(err) {
     'invalid_team_code', 'invalid_mobile', 'device_bound_other', 'device_required', 'code_required', 'code_length', 'invalid_name', 'device_not_allowed',
     'device_not_recognized', 'mobile_taken', 'unknown_consultant', 'invalid_project',
     'invalid_project_type', 'empty_report', 'too_many_photos', 'daily_limit', 'report_conflict',
-    'device_limit', 'pair_code_needed', 'invalid_pair_code', 'too_long', 'storage_full', 'has_reports_today', 'post_required',
+    'device_limit', 'pair_code_needed', 'invalid_pair_code', 'too_long', 'too_short', 'duplicate_report',
+    'yesterday_closed', 'upload_storage', 'same_consultant', 'unknown_project', 'storage_full', 'has_reports_today', 'post_required',
     'upload_refused', 'photos_missing_locally', 'rate_limited', 'bad_html', 'mobile_change_manager', 'unknown_report',
   ];
   const hit = known.find((k) => msg.includes(k));

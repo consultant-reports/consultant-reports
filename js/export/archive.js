@@ -7,11 +7,11 @@
 //  * Deletion removes only the report ids and object names recorded while building.
 //  * Report rows are deleted before their photo files: if deletion stops half-way, the
 //    leftover files are simply picked up (as Unattached) by the next archive.
-import { CONFIG } from '../config.js?v=15';
-import { isoDay, addDays } from '../lib.js?v=15';
-import { fetchAllReports, photoLoader, exportBaseName, filterParts, downloadWithRetry } from './data.js?v=15';
-import { buildPdf } from './pdf.js?v=15';
-import { buildExcel, assignPhotoNames, sortedPhotos } from './excel.js?v=15';
+import { CONFIG } from '../config.js?v=16';
+import { isoDay, addDays } from '../lib.js?v=16';
+import { fetchAllReports, photoLoader, exportBaseName, filterParts, downloadWithRetry } from './data.js?v=16';
+import { buildPdf } from './pdf.js?v=16';
+import { buildExcel, assignPhotoNames, sortedPhotos } from './excel.js?v=16';
 
 /** All storage objects whose date folder is in the range (paged: the API returns ≤1000 rows per call). */
 export async function listObjects(sb, from, to) {
@@ -33,15 +33,15 @@ export async function planArchive(sb, from, to) {
   const BATCH = 1000;
   for (let i = 0; ; i += BATCH) {
     const { data, error } = await sb.from('reports')
-      .select('submitted_at')
-      .gte('submitted_at', `${from}T00:00:00${CONFIG.UTC_OFFSET}`)
-      .lt('submitted_at', `${addDays(to, 1)}T00:00:00${CONFIG.UTC_OFFSET}`)
-      .order('submitted_at')
+      .select('report_date')
+      .gte('report_date', from)
+      .lte('report_date', to)
+      .order('report_date')
       .range(i, i + BATCH - 1);
     if (error) throw error;
     for (const r of data) {
-      const d = isoDay(r.submitted_at);
-      perDay.set(d, (perDay.get(d) ?? 0) + 20000); // rough PDF share per report
+      const d = r.report_date;
+      perDay.set(d, (perDay.get(d) ?? 0) + 300 * 1024); // a report's PDF pages are ~300 KB
     }
     reports += data.length;
     if (data.length < BATCH) break;

@@ -1,26 +1,48 @@
-// Today (Section 8.1): who submitted, who did not.
-import { t, getLang } from '../i18n.js?v=15';
-import { el, fmtDate, fmtTime, todayIso, dayStart, dayEndExclusive } from '../lib.js?v=15';
-import { LIST_COLS } from '../export/data.js?v=15';
-import { cardProjectName } from '../export/card.js?v=15';
-import { loadingBlock, errorBlock, viewHead, statCard } from './ui.js?v=15';
+// Today (Section 8.1): who submitted, who did not — for today's date on the server (Riyadh),
+// counting reports by the day they are for. Also shows storage and keep-alive warnings here,
+// because the manager rarely opens the Storage or Admin screens.
+import { CONFIG } from '../config.js?v=16';
+import { t, getLang } from '../i18n.js?v=16';
+import { el, fmtIsoDay, sentLabel, todayIso } from '../lib.js?v=16';
+import { LIST_COLS } from '../export/data.js?v=16';
+import { cardProjectName } from '../export/card.js?v=16';
+import { loadingBlock, errorBlock, viewHead, statCard } from './ui.js?v=16';
 
 export async function render(ctx, view, _params, isCurrent) {
   const refresh = el('button', { type: 'button', class: 'btn sm', text: '↻', 'aria-label': t('common.retry'), onclick: () => render(ctx, view, _params, isCurrent) });
-  view.replaceChildren(viewHead(`${t('nav.today')} — ${fmtDate(new Date())}`, refresh), loadingBlock());
+  view.replaceChildren(viewHead(t('nav.today'), refresh), loadingBlock());
 
-  const day = todayIso();
-  const [rep, cons] = await Promise.all([
-    ctx.sb.from('reports').select(LIST_COLS)
-      .gte('submitted_at', dayStart(day)).lt('submitted_at', dayEndExclusive(day))
-      .order('submitted_at', { ascending: false }),
+  // The server's date, not the manager's PC clock.
+  const cfg = await ctx.sb.rpc('get_public_config');
+  const day = cfg.data?.today ?? todayIso();
+  view.firstChild.querySelector('h1').textContent = `${t('nav.today')} — ${fmtIsoDay(day)}`;
+
+  const [rep, cons, usage, beat] = await Promise.all([
+    ctx.sb.from('reports').select(LIST_COLS).eq('report_date', day).order('submitted_at', { ascending: false }),
     ctx.sb.from('consultants').select('id, full_name, mobile').eq('is_active', true).order('full_name'),
+    ctx.sb.rpc('storage_usage'),
+    ctx.sb.from('heartbeat').select('last_ping').eq('id', 1).maybeSingle(),
   ]);
   if (!isCurrent()) return;
   const error = rep.error || cons.error;
   if (error) {
     view.lastChild.replaceWith(errorBlock(t('err.load'), () => render(ctx, view, _params, isCurrent)));
     return;
+  }
+
+  // Warnings (quiet when everything is fine).
+  const warnings = [];
+  if (usage.data) {
+    const pct = Math.max(usage.data.photos_bytes / CONFIG.STORAGE_STOP_BYTES, usage.data.db_bytes / CONFIG.DB_STOP_BYTES) * 100;
+    if (pct >= CONFIG.WARN_PERCENT) {
+      warnings.push(el('a', {
+        class: `msg ${pct >= CONFIG.DANGER_PERCENT ? 'error' : 'warn'} banner`, href: '#storage',
+        text: t(pct >= CONFIG.DANGER_PERCENT ? 'st.danger' : 'st.warn', { p: Math.round(pct) }),
+      }));
+    }
+  }
+  if (beat.data?.last_ping && (Date.now() - new Date(beat.data.last_ping).getTime()) / 86400000 > CONFIG.HEARTBEAT_WARN_DAYS) {
+    warnings.push(el('div', { class: 'msg warn', text: t('today.keepAliveStale') }));
   }
 
   const submittedIds = new Set(rep.data.map((r) => r.consultant_id));
@@ -36,7 +58,7 @@ export async function render(ctx, view, _params, isCurrent) {
   const submittedList = rep.data.length
     ? el('ul', { class: 'list' }, rep.data.map((r) => el('li', {},
       el('a', { class: 'row', href: `#report/${r.id}` },
-        el('span', { class: 'time', text: fmtTime(r.submitted_at) }),
+        el('span', { class: 'time', text: sentLabel(r) }),
         el('span', { class: 'who' },
           el('b', { dir: 'auto', text: r.consultant_name_snapshot }),
           el('span', { dir: 'auto', text: cardProjectName(r, getLang()) })),
@@ -50,6 +72,7 @@ export async function render(ctx, view, _params, isCurrent) {
     : el('p', { class: 'center-state', text: t('today.allDone') });
 
   view.lastChild.replaceWith(el('div', {},
+    ...warnings,
     stats,
     el('h2', { class: 'section', text: `${t('today.submitted')} (${rep.data.length})` }),
     el('div', { class: 'table-wrap' }, submittedList),

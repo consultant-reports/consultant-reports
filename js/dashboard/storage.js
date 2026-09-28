@@ -1,10 +1,10 @@
 // Storage meter (12.1) and archive flow (12.2).
-import { CONFIG } from '../config.js?v=15';
-import { t } from '../i18n.js?v=15';
-import { el, fmtBytes, fmtIsoDay, todayIso, addDays, monthBounds, isoDay } from '../lib.js?v=15';
-import { planArchive, buildArchivePart, deleteArchived } from '../export/archive.js?v=15';
-import { saveBlob } from '../export/data.js?v=15';
-import { loadingBlock, errorBlock, viewHead, field, progressBar } from './ui.js?v=15';
+import { CONFIG } from '../config.js?v=16';
+import { t } from '../i18n.js?v=16';
+import { el, fmtBytes, fmtIsoDay, todayIso, addDays, monthBounds, isoDay } from '../lib.js?v=16';
+import { planArchive, buildArchivePart, deleteArchived } from '../export/archive.js?v=16';
+import { saveBlob } from '../export/data.js?v=16';
+import { loadingBlock, errorBlock, viewHead, field, progressBar } from './ui.js?v=16';
 
 const PENDING_KEY = 'dcr.archive.pending';
 const readPending = () => { try { return JSON.parse(localStorage.getItem(PENDING_KEY)); } catch { return null; } };
@@ -29,8 +29,8 @@ export async function render(ctx, view, _params, isCurrent) {
 
   // ---------------------------------------------------------------- meters
   const u = usage.data;
-  const photoPct = (u.photos_bytes / CONFIG.STORAGE_LIMIT_BYTES) * 100;
-  const dbPct = (u.db_bytes / CONFIG.DB_LIMIT_BYTES) * 100;
+  const photoPct = (u.photos_bytes / CONFIG.STORAGE_STOP_BYTES) * 100;
+  const dbPct = (u.db_bytes / CONFIG.DB_STOP_BYTES) * 100;
   const worst = Math.max(photoPct, dbPct);
   const meter = (label, used, limit, pct) => el('div', { class: 'meter' },
     el('div', { class: 'meter-head' },
@@ -45,8 +45,9 @@ export async function render(ctx, view, _params, isCurrent) {
   else if (worst >= CONFIG.WARN_PERCENT) root.append(el('div', { class: 'msg warn', role: 'alert', text: t('st.warn', { p: CONFIG.WARN_PERCENT }) }));
 
   root.append(el('div', { class: 'panel' },
-    meter(t('st.photos'), u.photos_bytes, CONFIG.STORAGE_LIMIT_BYTES, photoPct),
-    meter(t('st.db'), u.db_bytes, CONFIG.DB_LIMIT_BYTES, dbPct)));
+    meter(t('st.photos'), u.photos_bytes, CONFIG.STORAGE_STOP_BYTES, photoPct),
+    meter(t('st.db'), u.db_bytes, CONFIG.DB_STOP_BYTES, dbPct),
+    el('p', { class: 'muted small', style: 'margin:0', text: t('st.stopNote') })));
 
   // ---------------------------------------------------------------- archive
   root.append(el('h2', { class: 'section', text: t('ar.title') }), el('p', { class: 'muted section-hint', text: t('ar.intro') }));
@@ -75,7 +76,7 @@ export async function render(ctx, view, _params, isCurrent) {
 
   // Consultants may still upload photos for 3 days after a report, so the newest day that
   // can be archived is 4 days ago.
-  const lastDay = addDays(todayIso(), -4);
+  const lastDay = addDays(ctx.publicConfig?.today ?? todayIso(), -4);
   const oldestDay = isoDay(oldest.data[0].submitted_at);
   const oldestMonth = monthBounds(oldestDay);
   if (oldestMonth.to > lastDay) oldestMonth.to = lastDay;
