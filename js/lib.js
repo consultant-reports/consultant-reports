@@ -1,6 +1,6 @@
 // Shared helpers: Supabase client, dates in Asia/Riyadh, mobile numbers, file names.
 // supabase-js 2.117.2 comes from vendor/supabase.js (a plain script loaded before this module).
-import { CONFIG } from './config.js?v=13';
+import { CONFIG } from './config.js?v=15';
 
 // The consultant page must always act as anonymous, even if a manager is
 // signed in to the dashboard in the same browser — so it never persists a session.
@@ -20,12 +20,7 @@ export function createSupabase({ anonymous = false } = {}) {
     global: { fetch: fetchWithTimeout },
     auth: anonymous
       ? { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-      : {
-        // Per-tab storage: other sites on the shared github.io origin cannot read the session
-        // from another tab (the manager signs in again in a new tab).
-        persistSession: true, autoRefreshToken: true, storageKey: 'dcr-dashboard-auth',
-        storage: window.sessionStorage,
-      },
+      : { persistSession: true, autoRefreshToken: true, storageKey: 'dcr-dashboard-auth' },
   });
 }
 
@@ -208,7 +203,7 @@ export function errorKey(err) {
     'invalid_team_code', 'invalid_mobile', 'device_bound_other', 'device_required', 'code_required', 'code_length', 'invalid_name', 'device_not_allowed',
     'device_not_recognized', 'mobile_taken', 'unknown_consultant', 'invalid_project',
     'invalid_project_type', 'empty_report', 'too_many_photos', 'daily_limit', 'report_conflict',
-    'device_limit', 'pair_code_needed', 'invalid_pair_code',
+    'device_limit', 'pair_code_needed', 'invalid_pair_code', 'too_long', 'storage_full', 'has_reports_today', 'post_required',
     'upload_refused', 'photos_missing_locally', 'rate_limited', 'bad_html', 'mobile_change_manager', 'unknown_report',
   ];
   const hit = known.find((k) => msg.includes(k));

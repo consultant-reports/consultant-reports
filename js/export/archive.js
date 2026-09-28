@@ -7,11 +7,11 @@
 //  * Deletion removes only the report ids and object names recorded while building.
 //  * Report rows are deleted before their photo files: if deletion stops half-way, the
 //    leftover files are simply picked up (as Unattached) by the next archive.
-import { CONFIG } from '../config.js?v=13';
-import { isoDay, addDays } from '../lib.js?v=13';
-import { fetchAllReports, photoLoader, exportBaseName, filterParts, downloadWithRetry } from './data.js?v=13';
-import { buildPdf } from './pdf.js?v=13';
-import { buildExcel, assignPhotoNames, sortedPhotos } from './excel.js?v=13';
+import { CONFIG } from '../config.js?v=15';
+import { isoDay, addDays } from '../lib.js?v=15';
+import { fetchAllReports, photoLoader, exportBaseName, filterParts, downloadWithRetry } from './data.js?v=15';
+import { buildPdf } from './pdf.js?v=15';
+import { buildExcel, assignPhotoNames, sortedPhotos } from './excel.js?v=15';
 
 /** All storage objects whose date folder is in the range (paged: the API returns ≤1000 rows per call). */
 export async function listObjects(sb, from, to) {
@@ -88,11 +88,22 @@ export async function buildArchivePart(sb, part, onProgress = () => {}) {
   const cache = new Map();
   const load = photoLoader(sb, cache);
 
-  // 1. Download every photo first — if any is missing, fail before anything else.
+  // 1. Download every photo first. A file that no longer exists in storage (e.g. removed by an
+  //    interrupted older delete) is listed in MISSING_PHOTOS.txt instead of blocking the archive.
+  const missing = [];
   for (let i = 0; i < reports.length; i++) {
-    await load(reports[i]);
+    for (const p of sortedPhotos(reports[i])) {
+      if (cache.has(p.storage_path)) continue;
+      try {
+        cache.set(p.storage_path, await downloadWithRetry(sb, p.storage_path));
+      } catch (e) {
+        if (!/not found|404/i.test(e.message)) throw e; // real network problems still stop the archive
+        missing.push(p.storage_path);
+      }
+    }
     onProgress(0.4 * ((i + 1) / Math.max(1, reports.length)));
   }
+  for (const r of reports) r.report_photos = r.report_photos.filter((p) => cache.has(p.storage_path));
   const attached = new Set(reports.flatMap((r) => sortedPhotos(r).map((p) => p.storage_path)));
   const unattached = objects.filter((o) => !attached.has(o.name));
   for (const o of unattached) cache.set(o.name, await downloadWithRetry(sb, o.name));
@@ -119,6 +130,7 @@ export async function buildArchivePart(sb, part, onProgress = () => {}) {
     for (const p of sortedPhotos(r)) zip.file(names.get(p.storage_path), cache.get(p.storage_path));
   }
   for (const o of unattached) zip.file(`Unattached/${o.name}`, cache.get(o.name));
+  if (missing.length) zip.file('MISSING_PHOTOS.txt', `These photo files no longer existed on the server:\n${missing.join('\n')}\n`);
   const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE', streamFiles: true },
     (meta) => onProgress(0.85 + 0.15 * (meta.percent / 100)));
   cache.clear();

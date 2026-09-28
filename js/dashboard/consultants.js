@@ -1,8 +1,8 @@
 // Consultants (Section 8.5): registrations, last submission, Active toggle,
 // plus the team access code (manager may change it) and releasing a phone.
-import { t } from '../i18n.js?v=13';
-import { el, fmtDate, fmtDateTime, errorKey } from '../lib.js?v=13';
-import { loadingBlock, errorBlock, viewHead, dataTable, field } from './ui.js?v=13';
+import { t } from '../i18n.js?v=15';
+import { el, fmtDate, fmtDateTime, errorKey } from '../lib.js?v=15';
+import { loadingBlock, errorBlock, viewHead, dataTable, field } from './ui.js?v=15';
 
 export async function render(ctx, view, _params, isCurrent) {
   view.replaceChildren(viewHead(t('nav.consultants')), loadingBlock());
@@ -163,7 +163,6 @@ export async function render(ctx, view, _params, isCurrent) {
     if (n && window.prompt(t('cs.deleteTypeName', { name: c.full_name }))?.trim() !== c.full_name.trim()) return;
     btn.disabled = true;
     try {
-      // Photo files first (they cannot be removed from SQL), then the rows.
       const names = [];
       for (let i = 0; ; i += 1000) {
         const { data: page, error: e1 } = await ctx.sb.rpc('consultant_object_names', { p_consultant_id: c.id }).range(i, i + 999);
@@ -171,17 +170,17 @@ export async function render(ctx, view, _params, isCurrent) {
         names.push(...page.map((o) => o.name));
         if (page.length < 1000) break;
       }
-      for (let i = 0; i < names.length; i += 100) {
-        const { error: e2 } = await ctx.sb.storage.from('report-photos').remove(names.slice(i, i + 100));
-        if (e2) throw e2;
-      }
+      // Rows first: if removing the files then fails, the leftovers are picked up by the next archive.
       const { error: e3 } = await ctx.sb.rpc('delete_consultant', { p_consultant_id: c.id });
       if (e3) throw e3;
+      for (let i = 0; i < names.length; i += 100) {
+        await ctx.sb.storage.from('report-photos').remove(names.slice(i, i + 100));
+      }
       ctx.toast(t('cs.deleted', { name: c.full_name }));
       again();
     } catch (e) {
       btn.disabled = false;
-      ctx.toast(t('err.generic'));
+      ctx.toast(t(errorKey(e) === 'err.generic' ? 'err.generic' : errorKey(e)));
     }
   }
 

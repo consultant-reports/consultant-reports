@@ -77,6 +77,7 @@ form[aria-busy="true"] .type-btn, form[aria-busy="true"] .photo-actions, form[ar
 
 #finishBtn { display: block; margin-top: 10px; }
 
+
 .pair-box { text-align: center; }
 .pair-code { font-size: 34px; font-weight: 700; letter-spacing: .12em; color: var(--accent); margin: 8px 0; direction: ltr; font-variant-numeric: tabular-nums; }
 #regPair { font-size: 22px; letter-spacing: .2em; text-align: center; }

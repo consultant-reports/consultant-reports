@@ -1,8 +1,8 @@
 // Admin section (8.8) — admin role only (also enforced by RLS on app_settings).
-import { CONFIG } from '../config.js?v=13';
-import { t } from '../i18n.js?v=13';
-import { el, fmtDateTime, fmtIsoDay, fmtBytes } from '../lib.js?v=13';
-import { loadingBlock, errorBlock, viewHead, dataTable, field } from './ui.js?v=13';
+import { CONFIG } from '../config.js?v=15';
+import { t } from '../i18n.js?v=15';
+import { el, fmtDateTime, fmtIsoDay, fmtBytes } from '../lib.js?v=15';
+import { loadingBlock, errorBlock, viewHead, dataTable, field } from './ui.js?v=15';
 
 // Phone binding is always enforced now, so the old 'team_code_device' mode equals 'team_code'.
 const MODES = ['none', 'team_code'];
@@ -10,13 +10,14 @@ const MODES = ['none', 'team_code'];
 export async function render(ctx, view, _params, isCurrent) {
   view.replaceChildren(viewHead(t('nav.admin')), loadingBlock());
   const again = () => render(ctx, view, _params, isCurrent);
-  const [settings, beat, log] = await Promise.all([
+  const [settings, beat, log, audit] = await Promise.all([
     ctx.sb.from('app_settings').select('*').eq('id', 1).single(),
     ctx.sb.from('heartbeat').select('last_ping').eq('id', 1).single(),
     ctx.sb.from('archive_log').select('*').order('archived_at', { ascending: false }).limit(100),
+    ctx.sb.rpc('get_audit'),
   ]);
   if (!isCurrent()) return;
-  if (settings.error || beat.error || log.error) {
+  if (settings.error || beat.error || log.error || audit.error) {
     view.lastChild.replaceWith(errorBlock(t('err.load'), again));
     return;
   }
@@ -101,5 +102,16 @@ export async function render(ctx, view, _params, isCurrent) {
     el('h2', { class: 'section', text: t('ad.access') }), accessForm,
     el('h2', { class: 'section', text: t('ad.heartbeat') }), heartbeat,
     el('h2', { class: 'section', text: t('ad.log') }), logTable,
+    el('h2', { class: 'section', text: t('ad.audit') }),
+    el('p', { class: 'muted small section-hint', text: t('ad.audit.hint') }),
+    dataTable({
+      rows: audit.data,
+      columns: [
+        { label: t('ad.col.when'), cls: 'num', render: (r) => fmtDateTime(r.at) },
+        { label: t('ad.col.who'), render: (r) => r.who },
+        { label: t('ad.col.action'), render: (r) => t(`audit.${r.action}`) },
+        { label: t('ad.col.detail'), render: (r) => el('span', { dir: 'auto', text: r.detail ?? '' }) },
+      ],
+    }),
     el('h2', { class: 'section', text: t('ad.password') }), password));
 }

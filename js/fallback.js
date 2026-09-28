@@ -1,6 +1,11 @@
 // If a script fails to download (weak signal), the app never starts: after 15 s offer a reload
 // instead of an endless spinner. Plain script (no modules) so it runs even when the rest fails.
 (function () {
+  // Never run inside someone else's frame (clickjacking).
+  if (window.top !== window.self) {
+    try { window.top.location = window.self.location.href; } catch (e) { document.documentElement.style.display = 'none'; }
+    return;
+  }
   setTimeout(function () {
     var l = document.getElementById('screenLoading') || document.getElementById('loading');
     if (!l || l.hidden || window.__dcrBooted) return;

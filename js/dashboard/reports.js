@@ -1,14 +1,14 @@
 // Reports list (Section 8.2) with combinable filters, pagination and exports (8.6).
-import { CONFIG } from '../config.js?v=13';
-import { t, getLang } from '../i18n.js?v=13';
-import { el, fmtDate, fmtTime, PROJECT_TYPES } from '../lib.js?v=13';
+import { CONFIG } from '../config.js?v=15';
+import { t, getLang } from '../i18n.js?v=15';
+import { el, fmtDate, fmtTime, PROJECT_TYPES } from '../lib.js?v=15';
 import {
   LIST_COLS, applyFilters, fetchAllReports, photoLoader, exportRange, exportBaseName, filterParts, saveBlob,
-} from '../export/data.js?v=13';
-import { cardProjectName } from '../export/card.js?v=13';
-import { buildPdf } from '../export/pdf.js?v=13';
-import { buildExcel } from '../export/excel.js?v=13';
-import { loadingBlock, errorBlock, viewHead, dataTable, combo, select, field, progressBar } from './ui.js?v=13';
+} from '../export/data.js?v=15';
+import { cardProjectName } from '../export/card.js?v=15';
+import { buildPdf } from '../export/pdf.js?v=15';
+import { buildExcel } from '../export/excel.js?v=15';
+import { loadingBlock, errorBlock, viewHead, dataTable, combo, select, field, progressBar } from './ui.js?v=15';
 
 export async function render(ctx, view, _params, isCurrent) {
   const st = (ctx.state.reports ??= { f: {}, page: 0 });
@@ -56,6 +56,11 @@ export async function render(ctx, view, _params, isCurrent) {
     }
     return opts;
   };
+  {
+    // A saved filter may point at a project that was deleted or renamed meanwhile.
+    const offered = projectOptions().flatMap((o) => (o.group ? o.options : [o])).map((o) => o.value);
+    if (f.project && !offered.includes(f.project)) delete f.project;
+  }
   let projSelect = select(projectOptions(), f.project, (v) => setFilter('project', v));
   const projField = field(t('rl.project'), projSelect);
 

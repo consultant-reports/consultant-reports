@@ -1,11 +1,11 @@
 // Consultant app (Section 7): registration + Submit Report.
-import { CONFIG } from './config.js?v=13';
-import { t, applyI18n, bindLangToggle } from './i18n.js?v=13';
+import { CONFIG } from './config.js?v=15';
+import { t, applyI18n, bindLangToggle } from './i18n.js?v=15';
 import {
-  createSupabase, normalizeMobile, fmtDate, fmtTime, uuid, errorKey, PROJECT_TYPES, sleep,
-} from './lib.js?v=13';
-import { sanitizeReportHtml } from './sanitize.js?v=13';
-import { photoStore } from './idb.js?v=13';
+  createSupabase, normalizeMobile, toWesternDigits, fmtDate, fmtTime, uuid, errorKey, PROJECT_TYPES, sleep,
+} from './lib.js?v=15';
+import { sanitizeReportHtml } from './sanitize.js?v=15';
+import { photoStore } from './idb.js?v=15';
 
 const sb = createSupabase({ anonymous: true });
 const $ = (id) => document.getElementById(id);
@@ -178,7 +178,7 @@ function wireRegister() {
         return showMsg($('regError'), t('reg.codeNeeded'));
       }
     }
-    const code = $('regCode').value.trim();
+    const code = toWesternDigits($('regCode').value).trim();
     try {
       if (S.regMode === 'edit') {
         const { data, error } = await sb.rpc('update_my_details', {
@@ -193,11 +193,11 @@ function wireRegister() {
       } else {
         const { data, error } = await sb.rpc('register_consultant', {
           p_full_name: name, p_mobile: mobile, p_team_code: code || null, p_device_id: deviceId(),
-          p_pair_code: $('regPair').value.trim() || null,
+          p_pair_code: toWesternDigits($('regPair').value).trim() || null,
         });
         if (error) throw error;
         if (data?.error === 'pair_code_needed' || data?.error === 'invalid_pair_code') {
-          // This mobile already has a device: link this one with the code from the first device.
+          // This number already has a device: link this one with the code from that device.
           $('regPairField').hidden = false;
           $('regPair').focus();
           if (data.error === 'invalid_pair_code') $('regPair').select();
@@ -236,12 +236,21 @@ async function checkBinding() {
     p_consultant_id: S.me.consultant_id, p_device_token: S.me.device_token, p_device_id: deviceId(),
   });
   if (error && errorKey(error) !== 'err.device_bound_other') return; // offline etc.: try next time
-  if (!error && data === 'ok') return;
+  if (!error && data?.status === 'ok') {
+    if (data.full_name !== S.me.full_name || data.mobile !== S.me.mobile) {
+      S.me = { ...S.me, full_name: data.full_name, mobile: data.mobile };
+      save(LS.me, S.me);
+      $('idName').textContent = S.me.full_name;
+      $('idMobile').textContent = S.me.mobile;
+    }
+    return;
+  }
   if (S.pending || S.sent || S.busy) return; // never interrupt an unfinished submission
   forgetMe(); // the draft stays on the phone and comes back after registering again
   openRegister('register');
   showMsg($('regError'), t(error ? 'err.device_bound_other' : 'reg.released'));
 }
+
 
 // First device: show a 6-digit code to link a second device (e.g. WhatsApp's browser or a laptop).
 async function showPairingCode() {
@@ -254,10 +263,10 @@ async function showPairingCode() {
     if (error) throw error;
     const box = $('noticeBox');
     box.className = 'msg info pair-box';
-    box.replaceChildren(
-      document.createTextNode(t('pair.intro')),
-      Object.assign(document.createElement('div'), { className: 'pair-code', textContent: data.code.replace(/(\d{3})(\d{3})/, '$1 $2') }),
-      document.createTextNode(t('pair.steps')));
+    const codeEl = document.createElement('div');
+    codeEl.className = 'pair-code';
+    codeEl.textContent = data.code.replace(/(\d{3})(\d{3})/, '$1 $2');
+    box.replaceChildren(document.createTextNode(t('pair.intro')), codeEl, document.createTextNode(t('pair.steps')));
     box.hidden = false;
     box.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (e) {
@@ -484,6 +493,7 @@ function removePhoto(p) {
 function saveDraft() {
   if (!quill) return;
   save(LS.draft, {
+    owner: S.me?.consultant_id ?? null,
     type: S.type,
     projectId: S.projectId,
     otherName: S.otherName,
@@ -495,7 +505,12 @@ function saveDraft() {
 }
 
 async function restoreDraft() {
-  const d = load(LS.draft);
+  let d = load(LS.draft);
+  if (d?.owner && S.me && d.owner !== S.me.consultant_id) {
+    // Written by someone else who used this phone before: never show or send it as ours.
+    await clearDraft();
+    d = null;
+  }
   const stored = (await photoStore.all()).sort((a, b) => a.order - b.order);
   S.photos.forEach((p) => p.url && URL.revokeObjectURL(p.url));
   S.photos = stored.map((r) => ({ id: r.id, order: r.order, blob: r.blob, url: URL.createObjectURL(r.blob), busy: false }));
@@ -618,9 +633,11 @@ async function submit() {
     if (!S.pending) {
       if (!S.sent) {
         const photos = S.photos.filter((p) => p.blob);
+        const html = sanitizeReportHtml(quill.getSemanticHTML());
+        if (new TextEncoder().encode(html).length > 30000) throw new Error('too_long');
         S.reportId ??= uuid();
         S.sent = {
-          html: sanitizeReportHtml(quill.getSemanticHTML()),
+          html,
           type: S.type,
           projectId: S.projectId === 'other' ? null : S.projectId,
           otherName: S.projectId === 'other' ? S.otherName.trim() : null,
@@ -665,7 +682,8 @@ async function submit() {
       return;
     }
     if (key === 'err.invalid_project' || key === 'err.invalid_project_type' || key === 'err.bad_html'
-        || key === 'err.empty_report' || key === 'err.daily_limit') {
+        || key === 'err.empty_report' || key === 'err.daily_limit' || key === 'err.too_long'
+        || key === 'err.report_conflict' || key === 'err.storage_full') {
       // The server refused the report itself: unfreeze the form so it can be corrected.
       S.sent = null;
       S.reportId = null;
@@ -717,7 +735,14 @@ async function finish(force) {
   const { data, error } = await sb.rpc('attach_photos', {
     p_report_id: p.reportId, p_consultant_id: S.me.consultant_id, p_device_token: S.me.device_token,
   });
-  if (error && !(force && /unknown_report/.test(error.message))) throw error;
+  if (error && /unknown_report/.test(error.message)) {
+    await clearDraft();
+    S.busy = false;
+    resetForm();
+    notice(t('err.report_removed'), 'warn');
+    return;
+  }
+  if (error) throw error;
   const count = data?.photo_count ?? 0;
   const missingLocally = p.slots.some((s) => !S.photos.some((x) => x.id === s.id && x.blob) && !p.uploaded.includes(s.n));
   if (!force && count < p.expected) {
@@ -731,6 +756,8 @@ async function finish(force) {
   $('okDate').textContent = fmtDate(when);
   $('okTime').textContent = fmtTime(when);
   showMsg($('okWarn'), short ? t('ok.photosShort', { n: short }) : '', 'warn');
+  const iphone = /iPhone|iPad|iPod/.test(navigator.userAgent) && !navigator.standalone;
+  showMsg($('okTip'), iphone ? t('ok.iphoneTip') : '', 'info');
   show('screenSuccess');
 }
 

@@ -1,13 +1,13 @@
 // Dashboard shell: sign-in, role check, hash router, shared helpers.
-import { t, applyI18n, bindLangToggle } from '../i18n.js?v=13';
-import { createSupabase, el } from '../lib.js?v=13';
-import * as today from './today.js?v=13';
-import * as reports from './reports.js?v=13';
-import * as detail from './detail.js?v=13';
-import * as projects from './projects.js?v=13';
-import * as consultants from './consultants.js?v=13';
-import * as storage from './storage.js?v=13';
-import * as admin from './admin.js?v=13';
+import { t, applyI18n, bindLangToggle } from '../i18n.js?v=15';
+import { createSupabase, el } from '../lib.js?v=15';
+import * as today from './today.js?v=15';
+import * as reports from './reports.js?v=15';
+import * as detail from './detail.js?v=15';
+import * as projects from './projects.js?v=15';
+import * as consultants from './consultants.js?v=15';
+import * as storage from './storage.js?v=15';
+import * as admin from './admin.js?v=15';
 
 const $ = (id) => document.getElementById(id);
 
@@ -253,9 +253,6 @@ function route() {
 
 async function boot() {
   window.__dcrBooted = true;
-  // Older versions kept the session in localStorage, readable by every site on the shared
-  // github.io origin; remove it (the session now lives in this tab only).
-  try { localStorage.removeItem('dcr-dashboard-auth'); } catch { /* ignore */ }
   applyI18n();
   bindLangToggle($('langToggle'));
   window.addEventListener('hashchange', route);
