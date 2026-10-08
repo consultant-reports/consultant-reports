@@ -7,11 +7,11 @@
 //  * Deletion removes only the report ids and object names recorded while building.
 //  * Report rows are deleted before their photo files: if deletion stops half-way, the
 //    leftover files are simply picked up (as Unattached) by the next archive.
-import { CONFIG } from '../config.js?v=16';
-import { isoDay, addDays } from '../lib.js?v=16';
-import { fetchAllReports, photoLoader, exportBaseName, filterParts, downloadWithRetry } from './data.js?v=16';
-import { buildPdf } from './pdf.js?v=16';
-import { buildExcel, assignPhotoNames, sortedPhotos } from './excel.js?v=16';
+import { CONFIG } from '../config.js?v=19';
+import { isoDay, addDays } from '../lib.js?v=19';
+import { fetchAllReports, photoLoader, exportBaseName, filterParts, downloadWithRetry } from './data.js?v=19';
+import { buildPdf } from './pdf.js?v=19';
+import { buildExcel, assignPhotoNames, sortedPhotos } from './excel.js?v=19';
 
 /** All storage objects whose date folder is in the range (paged: the API returns ≤1000 rows per call). */
 export async function listObjects(sb, from, to) {

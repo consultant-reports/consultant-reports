@@ -1,11 +1,11 @@
 // Consultant app (Section 7): registration + Submit Report.
-import { CONFIG } from './config.js?v=16';
-import { t, applyI18n, bindLangToggle } from './i18n.js?v=16';
+import { CONFIG } from './config.js?v=19';
+import { t, applyI18n, bindLangToggle } from './i18n.js?v=19';
 import {
   createSupabase, normalizeMobile, toWesternDigits, fmtDate, fmtTime, isoDay, fmtIsoDay, uuid, errorKey, PROJECT_TYPES, sleep,
-} from './lib.js?v=16';
-import { sanitizeReportHtml } from './sanitize.js?v=16';
-import { photoStore } from './idb.js?v=16';
+} from './lib.js?v=19';
+import { sanitizeReportHtml } from './sanitize.js?v=19';
+import { photoStore } from './idb.js?v=19';
 
 const sb = createSupabase({ anonymous: true });
 const $ = (id) => document.getElementById(id);
@@ -27,6 +27,91 @@ function deviceId() {
 const load = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* full or blocked */ } };
 const drop = (k) => { try { localStorage.removeItem(k); } catch { /* ignore */ } };
+
+// ---------------------------------------------------------------- add to home screen
+
+let installPrompt = null; // Chrome / Samsung Internet on Android offer a one-tap install
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; refreshInstallTips(); });
+window.addEventListener('appinstalled', () => { installPrompt = null; hideInstallTips(); });
+
+// Which instructions this phone needs; null when already opened from the icon or not a phone.
+function homeScreenKind() {
+  if (navigator.standalone || matchMedia('(display-mode: standalone)').matches) return null;
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'ios';
+  if (!/Android/.test(ua)) return null;
+  if (/; wv\)|FBAN|FBAV|Instagram|WhatsApp|Snapchat|Line\//.test(ua)) return 'inapp';
+  return /SamsungBrowser/.test(ua) ? 'samsung' : 'chrome';
+}
+
+// where: 'reg' (registration screen, essential on iPhone) or 'ok' (after a report, can be postponed).
+function renderInstallTip(node, where) {
+  const kind = homeScreenKind();
+  const later = load('dcr.a2hsLater');
+  if (!kind || (where === 'ok' && later && Date.now() - later < 14 * 864e5)) {
+    node.hidden = true;
+    node.replaceChildren();
+    return;
+  }
+  const el = (tag, text, cls) => {
+    const n = document.createElement(tag);
+    if (text) n.textContent = text;
+    if (cls) n.className = cls;
+    return n;
+  };
+  const parts = [];
+  const btns = el('div', '', 'row-btns');
+  if (kind === 'inapp') {
+    parts.push(el('p', t(where === 'reg' ? 'a2hs.inappReg' : 'a2hs.inapp')));
+  } else {
+    parts.push(el('p', t(where === 'reg' ? 'a2hs.titleReg' : 'a2hs.titleOk')));
+    if (installPrompt && kind !== 'ios') {
+      const b = el('button', t('a2hs.install'), 'btn primary grow');
+      b.type = 'button';
+      b.addEventListener('click', installApp);
+      btns.append(b);
+    } else {
+      const ol = el('ol');
+      t(`a2hs.${kind}.steps`).split('|').forEach((x) => ol.append(el('li', x)));
+      parts.push(ol);
+    }
+    if (kind === 'ios') parts.push(el('p', t(where === 'reg' ? 'a2hs.ios.noteReg' : 'a2hs.ios.noteOk')));
+  }
+  if (where === 'ok') {
+    const b = el('button', t('a2hs.later'), 'btn');
+    b.type = 'button';
+    b.addEventListener('click', () => { save('dcr.a2hsLater', Date.now()); node.hidden = true; });
+    btns.append(b);
+  }
+  if (btns.childElementCount) parts.push(btns);
+  node.className = 'msg info install-tip';
+  node.dataset.where = where;
+  node.replaceChildren(...parts);
+  node.hidden = false;
+}
+
+async function installApp() {
+  const p = installPrompt;
+  if (!p) return;
+  installPrompt = null;
+  try {
+    await p.prompt();
+    const { outcome } = await p.userChoice;
+    if (outcome === 'accepted') { hideInstallTips(); return; }
+  } catch { /* prompt already used */ }
+  refreshInstallTips();
+}
+
+function refreshInstallTips() {
+  ['regTip', 'okTip'].forEach((id) => {
+    const n = $(id);
+    if (n && !n.hidden && n.dataset.where) renderInstallTip(n, n.dataset.where);
+  });
+}
+
+function hideInstallTips() {
+  ['regTip', 'okTip'].forEach((id) => { const n = $(id); if (n) n.hidden = true; });
+}
 
 const S = {
   config: load(LS.config) ?? { access_mode: 'none' },
@@ -83,7 +168,7 @@ function showMsg(node, text, kind) {
 // ---------------------------------------------------------------- boot
 
 async function boot() {
-  const REQUIRED = ['confirmBox', 'dayField', 'lastSent', 'discardBtn', 'regTip'];
+  const REQUIRED = ['confirmBox', 'dayField', 'lastSent', 'discardBtn', 'regTip', 'okTip'];
   if (REQUIRED.some((id) => !$(id))) {
     // The browser mixed an old cached page with new scripts: reload once to get both new.
     let tried = false;
@@ -181,8 +266,8 @@ function openRegister(mode) {
   $('regPairField').hidden = true;
   $('regPair').value = '';
   showMsg($('regError'), '');
-  const iphone = /iPhone|iPad|iPod/.test(navigator.userAgent) && !navigator.standalone;
-  showMsg($('regTip'), !edit && iphone ? t('reg.iphoneTip') : '', 'info');
+  if (edit) showMsg($('regTip'), '');
+  else renderInstallTip($('regTip'), 'reg');
   applyI18n($('screenRegister'));
   show('screenRegister');
 }
@@ -931,6 +1016,7 @@ async function finish(force) {
   const project = S.lastProjectLabel || '';
   save('dcr.lastSent', { at: when, reportDate: p.reportDate, project, owner: S.me.consultant_id });
   showMsg($('okWarn'), short ? t('ok.photosShort', { n: short }) : '', 'warn');
+  renderInstallTip($('okTip'), 'ok');
   show('screenSuccess');
 }
 
@@ -959,6 +1045,7 @@ function onLangChange() {
   applyLock();
   ['errType', 'errProject', 'errOther', 'errBody'].forEach(hideErr);
   if (!$('regIntro').hidden || S.regMode === 'register') applyI18n($('screenRegister'));
+  refreshInstallTips();
 }
 
 boot();

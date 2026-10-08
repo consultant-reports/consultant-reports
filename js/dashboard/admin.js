@@ -1,8 +1,8 @@
 // Admin section (8.8) — admin role only (also enforced by RLS on app_settings).
-import { CONFIG } from '../config.js?v=16';
-import { t } from '../i18n.js?v=16';
-import { el, fmtDateTime, fmtIsoDay, fmtBytes } from '../lib.js?v=16';
-import { loadingBlock, errorBlock, viewHead, dataTable, field } from './ui.js?v=16';
+import { CONFIG } from '../config.js?v=19';
+import { t } from '../i18n.js?v=19';
+import { el, fmtDateTime, fmtIsoDay, fmtBytes } from '../lib.js?v=19';
+import { loadingBlock, errorBlock, viewHead, dataTable, field } from './ui.js?v=19';
 
 // Phone binding is always enforced now, so the old 'team_code_device' mode equals 'team_code'.
 const MODES = ['none', 'team_code'];

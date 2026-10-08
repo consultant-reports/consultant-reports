@@ -19,6 +19,7 @@ index.html                 Consultant app
 dashboard.html             Dashboard (manager + admin)
 css/                       base.css (palette, controls), consultant.css, dashboard.css, card.css (report card / PDF)
 fonts/                     Inter + Noto Naskh Arabic (self-hosted woff2)
+manifest.webmanifest, icons/  Home-screen app ("Daily Reports")
 js/config.js               Supabase URL + publishable key, limits  ← the only file to edit when moving projects
 js/i18n.js                 All UI strings (en / ar)
 js/lib.js                  Supabase client, Riyadh dates, mobile normalisation, file names

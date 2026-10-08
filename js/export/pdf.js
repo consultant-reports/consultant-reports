@@ -3,9 +3,9 @@
 // so a card never splits: it moves whole to the next page when it does not fit.
 // A card taller than a page continues on the next page(s) under "<Name> — continued",
 // cutting only between paragraphs / photo rows.
-import { CONFIG } from '../config.js?v=16';
-import { el, fmtDateTime, reportDay, mapLimit } from '../lib.js?v=16';
-import { buildCard, buildContinued, buildTitleBlock, buildSummaryTable } from './card.js?v=16';
+import { CONFIG } from '../config.js?v=19';
+import { el, fmtDateTime, reportDay, mapLimit } from '../lib.js?v=19';
+import { buildCard, buildContinued, buildTitleBlock, buildSummaryTable } from './card.js?v=19';
 
 const PAGE_W = 210;
 const PAGE_H = 297;

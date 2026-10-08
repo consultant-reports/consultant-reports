@@ -8,15 +8,22 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://klhqyozldjtnduopsouc.supabase.co; font-src 'self'; connect-src 'self' https://klhqyozldjtnduopsouc.supabase.co; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
   <meta name="referrer" content="no-referrer">
   <title>Daily Consultant Reports</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Daily Reports">
+  <meta name="application-name" content="Daily Reports">
   <link rel="stylesheet" href="vendor/quill.snow.css">
-  <link rel="stylesheet" href="css/base.css?v=16">
-  <link rel="stylesheet" href="css/consultant.css?v=16">
-  <script defer src="js/fallback.js?v=16"></script>
+  <link rel="stylesheet" href="css/base.css?v=19">
+  <link rel="stylesheet" href="css/consultant.css?v=19">
+  <script defer src="js/fallback.js?v=19"></script>
   <script defer src="vendor/supabase.js"></script>
   <script defer src="vendor/quill.js"></script>
   <script defer src="vendor/purify.min.js"></script>
   <script defer src="vendor/browser-image-compression.js"></script>
-  <script type="module" src="js/consultant.js?v=16"></script>
+  <script type="module" src="js/consultant.js?v=19"></script>
 </head>
 <body>
   <header class="topbar">
@@ -39,7 +46,7 @@
     <section id="screenRegister" hidden>
       <h1 id="regTitle" data-i18n="reg.title">Welcome</h1>
       <p class="muted" id="regIntro" data-i18n="reg.intro"></p>
-      <div id="regTip" class="msg info" hidden></div>
+      <div id="regTip" class="msg info install-tip" hidden></div>
       <form id="regForm" class="panel" novalidate>
         <label class="field">
           <span class="label" data-i18n="reg.name">Full Name</span>
@@ -169,6 +176,7 @@
       <p class="muted" data-i18n="ok.recorded">Recorded on</p>
       <p class="success-when"><span id="okDate"></span><br><span id="okTime" class="success-time"></span></p>
       <div id="okWarn" class="msg warn" role="status" hidden></div>
+      <div id="okTip" class="msg info install-tip" hidden></div>
       <button type="button" class="btn lg block" id="anotherBtn" data-i18n="ok.another">Submit another report</button>
     </section>
   </main>
