@@ -789,7 +789,10 @@ export const STRINGS = { en, ar };
 const KEY = 'dcr.lang';
 
 let lang = 'en';
-try { lang = localStorage.getItem(KEY) === 'ar' ? 'ar' : 'en'; } catch { /* storage blocked */ }
+// A saved choice wins; otherwise follow the phone's language (Arabic phones open in Arabic).
+let saved = null;
+try { saved = localStorage.getItem(KEY); } catch { /* storage blocked */ }
+lang = (saved || navigator.language || '').toLowerCase().startsWith('ar') ? 'ar' : 'en';
 
 export function getLang() {
   return lang;
