@@ -1,11 +1,11 @@
 // Consultant app (Section 7): registration + Submit Report.
-import { CONFIG } from './config.js?v=19';
-import { t, applyI18n, bindLangToggle } from './i18n.js?v=19';
+import { CONFIG } from './config.js?v=21';
+import { t, applyI18n, bindLangToggle } from './i18n.js?v=21';
 import {
   createSupabase, normalizeMobile, toWesternDigits, fmtDate, fmtTime, isoDay, fmtIsoDay, uuid, errorKey, PROJECT_TYPES, sleep,
-} from './lib.js?v=19';
-import { sanitizeReportHtml } from './sanitize.js?v=19';
-import { photoStore } from './idb.js?v=19';
+} from './lib.js?v=21';
+import { sanitizeReportHtml } from './sanitize.js?v=21';
+import { photoStore } from './idb.js?v=21';
 
 const sb = createSupabase({ anonymous: true });
 const $ = (id) => document.getElementById(id);
