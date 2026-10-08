@@ -1,11 +1,11 @@
 // Consultant app (Section 7): registration + Submit Report.
-import { CONFIG } from './config.js?v=23';
-import { t, applyI18n, bindLangToggle } from './i18n.js?v=23';
+import { CONFIG } from './config.js?v=24';
+import { t, applyI18n, bindLangToggle } from './i18n.js?v=24';
 import {
   createSupabase, normalizeMobile, toWesternDigits, fmtDate, fmtTime, isoDay, fmtIsoDay, uuid, errorKey, PROJECT_TYPES, sleep,
-} from './lib.js?v=23';
-import { sanitizeReportHtml } from './sanitize.js?v=23';
-import { photoStore } from './idb.js?v=23';
+} from './lib.js?v=24';
+import { sanitizeReportHtml } from './sanitize.js?v=24';
+import { photoStore } from './idb.js?v=24';
 
 const sb = createSupabase({ anonymous: true });
 const $ = (id) => document.getElementById(id);
@@ -27,6 +27,8 @@ function deviceId() {
 const load = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* full or blocked */ } };
 const drop = (k) => { try { localStorage.removeItem(k); } catch { /* ignore */ } };
+// First letter of the name, for the avatar circle (Arabic letters would join if two were used).
+const initials = (name) => (String(name || '').trim()[0] || '').toUpperCase();
 
 // ---------------------------------------------------------------- add to home screen
 
@@ -188,7 +190,7 @@ function showMsg(node, text, kind) {
 // ---------------------------------------------------------------- boot
 
 async function boot() {
-  const REQUIRED = ['confirmBox', 'dayField', 'lastSent', 'discardBtn', 'regTip', 'okTip', 'regLogo'];
+  const REQUIRED = ['confirmBox', 'dayField', 'lastSent', 'discardBtn', 'regTip', 'okTip', 'regLogo', 'idAvatar'];
   if (REQUIRED.some((id) => !$(id))) {
     // The browser mixed an old cached page with new scripts: reload once to get both new.
     let tried = false;
@@ -378,6 +380,7 @@ async function checkBinding() {
       S.me = { ...S.me, full_name: data.full_name, mobile: data.mobile };
       save(LS.me, S.me);
       $('idName').textContent = S.me.full_name;
+      $('idAvatar').textContent = initials(S.me.full_name);
       $('idMobile').textContent = S.me.mobile;
     }
     return;
@@ -461,6 +464,7 @@ function renderLastSent() {
 
 async function enterReport() {
   $('idName').textContent = S.me.full_name;
+  $('idAvatar').textContent = initials(S.me.full_name);
   $('idMobile').textContent = S.me.mobile;
   showMsg($('noticeBox'), '');
   initEditor();
@@ -480,7 +484,6 @@ function initEditor() {
     formats: ['header', 'size', 'bold', 'italic', 'underline', 'color', 'list'],
     modules: {
       toolbar: [
-        [{ header: [2, 3, false] }, { size: ['small', false, 'large', 'huge'] }],
         ['bold', 'italic', 'underline', { color: [] }],
         [{ list: 'ordered' }, { list: 'bullet' }],
         ['clean'],
