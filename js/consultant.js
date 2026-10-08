@@ -1,11 +1,11 @@
 // Consultant app (Section 7): registration + Submit Report.
-import { CONFIG } from './config.js?v=22';
-import { t, applyI18n, bindLangToggle } from './i18n.js?v=22';
+import { CONFIG } from './config.js?v=23';
+import { t, applyI18n, bindLangToggle } from './i18n.js?v=23';
 import {
   createSupabase, normalizeMobile, toWesternDigits, fmtDate, fmtTime, isoDay, fmtIsoDay, uuid, errorKey, PROJECT_TYPES, sleep,
-} from './lib.js?v=22';
-import { sanitizeReportHtml } from './sanitize.js?v=22';
-import { photoStore } from './idb.js?v=22';
+} from './lib.js?v=23';
+import { sanitizeReportHtml } from './sanitize.js?v=23';
+import { photoStore } from './idb.js?v=23';
 
 const sb = createSupabase({ anonymous: true });
 const $ = (id) => document.getElementById(id);
@@ -45,6 +45,7 @@ function homeScreenKind() {
 }
 
 // where: 'reg' (registration screen, essential on iPhone) or 'ok' (after a report, can be postponed).
+// A compact card: icon + one line; the steps stay folded under "Show me how".
 function renderInstallTip(node, where) {
   const kind = homeScreenKind();
   const later = load('dcr.a2hsLater');
@@ -59,32 +60,51 @@ function renderInstallTip(node, where) {
     if (cls) n.className = cls;
     return n;
   };
-  const parts = [];
-  const btns = el('div', '', 'row-btns');
+  const iosFirst = kind === 'ios' && where === 'reg';
+  const head = el('div', '', 'install-head');
+  const logo = el('img', '', 'install-logo');
+  logo.src = 'icons/icon-192.png';
+  logo.alt = '';
+  const words = el('div', '', 'install-words');
   if (kind === 'inapp') {
-    parts.push(el('p', t(where === 'reg' ? 'a2hs.inappReg' : 'a2hs.inapp')));
+    words.append(el('strong', t('a2hs.headInapp')), el('span', t('a2hs.inapp')));
   } else {
-    parts.push(el('p', t(where === 'reg' ? 'a2hs.titleReg' : 'a2hs.titleOk')));
+    words.append(
+      el('strong', t(iosFirst ? 'a2hs.headIosReg' : 'a2hs.head')),
+      el('span', t(iosFirst ? 'a2hs.subIosReg' : 'a2hs.sub')),
+    );
+  }
+  head.append(logo, words);
+  const parts = [head];
+  const btns = el('div', '', 'install-actions');
+  if (kind !== 'inapp') {
     if (installPrompt && kind !== 'ios') {
       const b = el('button', t('a2hs.install'), 'btn primary grow');
       b.type = 'button';
       b.addEventListener('click', installApp);
       btns.append(b);
     } else {
+      const det = el('details', '', 'install-how');
       const ol = el('ol');
       t(`a2hs.${kind}.steps`).split('|').forEach((x) => ol.append(el('li', x)));
-      parts.push(ol);
+      det.append(el('summary', t('a2hs.how')), ol);
+      if (kind === 'ios') det.append(el('p', t(where === 'reg' ? 'a2hs.ios.noteReg' : 'a2hs.ios.noteOk'), 'install-note'));
+      parts.push(det);
     }
-    if (kind === 'ios') parts.push(el('p', t(where === 'reg' ? 'a2hs.ios.noteReg' : 'a2hs.ios.noteOk')));
   }
   if (where === 'ok') {
-    const b = el('button', t('a2hs.later'), 'btn');
+    const b = el('button', t('a2hs.later'), 'linkbtn');
     b.type = 'button';
     b.addEventListener('click', () => { save('dcr.a2hsLater', Date.now()); node.hidden = true; });
     btns.append(b);
   }
   if (btns.childElementCount) parts.push(btns);
-  node.className = 'msg info install-tip';
+  // On the registration screen iPhone and in-app browsers need this before the form; others after it.
+  if (where === 'reg') {
+    if (kind === 'ios' || kind === 'inapp') $('regForm').before(node);
+    else $('regForm').after(node);
+  }
+  node.className = 'install-card';
   node.dataset.where = where;
   node.replaceChildren(...parts);
   node.hidden = false;
@@ -168,7 +188,7 @@ function showMsg(node, text, kind) {
 // ---------------------------------------------------------------- boot
 
 async function boot() {
-  const REQUIRED = ['confirmBox', 'dayField', 'lastSent', 'discardBtn', 'regTip', 'okTip'];
+  const REQUIRED = ['confirmBox', 'dayField', 'lastSent', 'discardBtn', 'regTip', 'okTip', 'regLogo'];
   if (REQUIRED.some((id) => !$(id))) {
     // The browser mixed an old cached page with new scripts: reload once to get both new.
     let tried = false;
@@ -256,6 +276,7 @@ function openRegister(mode) {
   const edit = mode === 'edit';
   $('regTitle').dataset.i18n = edit ? 'edit.title' : 'reg.title';
   $('regIntro').hidden = edit;
+  $('regLogo').hidden = edit;
   $('regCancel').hidden = !edit;
   syncCodeField();
   $('regName').value = edit ? S.me.full_name : '';

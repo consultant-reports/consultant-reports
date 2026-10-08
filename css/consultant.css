@@ -98,8 +98,31 @@ form[aria-busy="true"] .type-btn, form[aria-busy="true"] .photo-actions, form[ar
 .confirm-panel { background: var(--surface); border-radius: 12px; padding: 18px; max-width: 460px; width: 100%; box-shadow: 0 12px 36px rgba(0,0,0,.25); }
 .confirm-panel p { margin: 0 0 16px; white-space: pre-line; line-height: 1.6; }
 
-/* Add-to-home-screen tip */
-.install-tip p { margin: 0 0 6px; }
-.install-tip ol { margin: 4px 0 8px; padding-inline-start: 22px; }
-.install-tip li { margin: 2px 0; }
-.install-tip .row-btns { margin-top: 10px; }
+/* Registration hero */
+.reg-hero { text-align: center; padding: 20px 8px 8px; }
+.reg-logo { display: block; width: 72px; height: 72px; margin: 0 auto 14px; border-radius: 18px; box-shadow: 0 6px 18px rgba(47, 93, 138, .22); }
+.reg-hero h1 { font-size: 26px; margin: 0 0 8px; color: var(--ink); }
+.reg-hero p { margin: 0 auto 20px; max-width: 32ch; font-size: 16px; line-height: 1.6; }
+
+/* Add-to-home-screen card */
+.install-card { text-align: start; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 0 0 16px; }
+.panel + .install-card { margin-top: 16px; }
+.install-head { display: flex; align-items: center; gap: 12px; }
+.install-logo { width: 40px; height: 40px; border-radius: 10px; flex: none; }
+.install-words { min-width: 0; }
+.install-words strong { display: block; font-size: 16px; }
+.install-words span { display: block; font-size: 14px; color: var(--muted); line-height: 1.5; }
+.install-how { margin-top: 10px; border-top: 1px solid var(--band); padding-top: 8px; }
+.install-how summary {
+  cursor: pointer; list-style: none; min-height: 44px; display: flex; align-items: center; gap: 8px;
+  color: var(--accent); font-weight: 600; font-size: 15px;
+}
+.install-how summary::-webkit-details-marker { display: none; }
+.install-how summary::after { content: ''; width: 8px; height: 8px; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg); margin-top: -4px; transition: transform .2s; }
+.install-how[open] summary::after { transform: rotate(-135deg); margin-top: 4px; }
+.install-how ol { margin: 4px 0 6px; padding-inline-start: 22px; font-size: 15px; line-height: 1.6; }
+.install-how li { margin: 4px 0; }
+.install-note { margin: 6px 0 0; font-size: 14px; font-weight: 600; color: var(--ink); }
+.install-actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.install-actions .linkbtn { min-height: 44px; }
+@media (prefers-reduced-motion: reduce) { .install-how summary::after { transition: none; } }
