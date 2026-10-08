@@ -1,11 +1,11 @@
 // Consultant app (Section 7): registration + Submit Report.
-import { CONFIG } from './config.js?v=25';
-import { t, applyI18n, bindLangToggle } from './i18n.js?v=25';
+import { CONFIG } from './config.js?v=26';
+import { t, applyI18n, bindLangToggle } from './i18n.js?v=26';
 import {
   createSupabase, normalizeMobile, toWesternDigits, fmtDate, fmtTime, isoDay, fmtIsoDay, uuid, errorKey, PROJECT_TYPES, sleep,
-} from './lib.js?v=25';
-import { sanitizeReportHtml } from './sanitize.js?v=25';
-import { photoStore } from './idb.js?v=25';
+} from './lib.js?v=26';
+import { sanitizeReportHtml } from './sanitize.js?v=26';
+import { photoStore } from './idb.js?v=26';
 
 const sb = createSupabase({ anonymous: true });
 const $ = (id) => document.getElementById(id);
@@ -491,11 +491,16 @@ function initEditor() {
       uploader: { mimetypes: [] },
     },
   });
-  // Phone keyboards type the first word as a "composition", and Quill hides its placeholder only
-  // when the word is finished, so the hint stayed under the text. Hide it as soon as typing starts.
-  const hideHint = () => quill.root.classList.remove('ql-blank');
-  quill.root.addEventListener('compositionstart', hideHint);
-  quill.root.addEventListener('input', () => { if (quill.root.textContent) hideHint(); });
+  // Phone keyboards (English ones especially) type a word as a "composition" that Quill does not
+  // see until the word is finished, and Quill keeps re-marking the editor as empty meanwhile, so
+  // the placeholder stayed under the text. Track typing ourselves and hide the hint with CSS.
+  const wrap = quill.root.closest('.editor-wrap');
+  let composing = false;
+  const syncHint = () => wrap.classList.toggle('has-text', composing || quill.root.textContent.length > 0);
+  quill.root.addEventListener('compositionstart', () => { composing = true; syncHint(); });
+  quill.root.addEventListener('compositionend', () => { composing = false; syncHint(); });
+  ['beforeinput', 'input', 'keyup'].forEach((ev) => quill.root.addEventListener(ev, () => setTimeout(syncHint)));
+  quill.on('text-change', syncHint);
   quill.clipboard.addMatcher(Node.ELEMENT_NODE, (node, delta) => {
     delta.ops.forEach((op) => {
       if (op.attributes) { delete op.attributes.color; delete op.attributes.background; }

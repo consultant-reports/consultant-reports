@@ -206,3 +206,4 @@ form[aria-busy="true"] .type-btn, form[aria-busy="true"] .photo-actions, form[ar
   background: linear-gradient(to bottom, rgba(243, 246, 249, 0), var(--bg) 22%);
 }
 .submit-bar .hint { margin: 6px 0 0; }
+.editor-wrap.has-text .ql-editor.ql-blank::before { display: none; }
