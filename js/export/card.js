@@ -1,8 +1,8 @@
 // Builds the report card DOM (Section 10.1) and the PDF page-1 blocks.
 // The same builder feeds the dashboard detail view and the PDF, so they always match.
-import { t } from '../i18n.js?v=26';
-import { el, fmtTime, fmtIsoDay, reportDay, sentLabel } from '../lib.js?v=26';
-import { sanitizeReportHtml } from '../sanitize.js?v=26';
+import { t } from '../i18n.js?v=29';
+import { el, fmtTime, fmtIsoDay, reportDay, sentLabel } from '../lib.js?v=29';
+import { sanitizeReportHtml } from '../sanitize.js?v=29';
 
 export function cardProjectName(r, lang) {
   if (r.project_other_name) return `${r.project_other_name} (${t('card.other', {}, lang)})`;

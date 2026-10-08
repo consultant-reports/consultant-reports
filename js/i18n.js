@@ -253,6 +253,9 @@ const en = {
   'nav.consultants': 'Consultants',
   'nav.storage': 'Storage & Archive',
   'nav.admin': 'Admin',
+  'cs.actions': 'Actions',
+  'rl.filters': 'Filters',
+  'rl.pickDate': 'Choose a date',
 
   // today
   'today.submitted': 'Submitted today',
@@ -651,6 +654,9 @@ const ar = {
   'nav.consultants': 'الاستشاريون',
   'nav.storage': 'التخزين والأرشفة',
   'nav.admin': 'الإدارة',
+  'cs.actions': 'الإجراءات',
+  'rl.filters': 'الفلاتر',
+  'rl.pickDate': 'اختر التاريخ',
 
   'today.submitted': 'أرسلوا اليوم',
   'today.notSubmitted': 'لم يرسلوا اليوم',

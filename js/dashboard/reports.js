@@ -1,14 +1,15 @@
 // Reports list (Section 8.2) with combinable filters, pagination and exports (8.6).
-import { CONFIG } from '../config.js?v=26';
-import { t, getLang } from '../i18n.js?v=26';
-import { el, fmtIsoDay, reportDay, sentLabel, PROJECT_TYPES } from '../lib.js?v=26';
+import { CONFIG } from '../config.js?v=29';
+import { t, getLang } from '../i18n.js?v=29';
+import { el, reportDay, PROJECT_TYPES } from '../lib.js?v=29';
+import { fmtIsoDay, sentLabel } from './dates.js?v=29';
 import {
   LIST_COLS, applyFilters, fetchAllReports, photoLoader, exportRange, exportBaseName, filterParts, saveBlob,
-} from '../export/data.js?v=26';
-import { cardProjectName } from '../export/card.js?v=26';
-import { buildPdf } from '../export/pdf.js?v=26';
-import { buildExcel } from '../export/excel.js?v=26';
-import { loadingBlock, errorBlock, viewHead, dataTable, combo, select, field, progressBar } from './ui.js?v=26';
+} from '../export/data.js?v=29';
+import { cardProjectName } from '../export/card.js?v=29';
+import { buildPdf } from '../export/pdf.js?v=29';
+import { buildExcel } from '../export/excel.js?v=29';
+import { loadingBlock, errorBlock, viewHead, dataTable, combo, select, field, progressBar, iso } from './ui.js?v=29';
 
 export async function render(ctx, view, _params, isCurrent) {
   const st = (ctx.state.reports ??= { f: {}, page: 0 });
@@ -31,9 +32,16 @@ export async function render(ctx, view, _params, isCurrent) {
   // ---------------------------------------------------------------- filters
   const f = st.f;
   const listBox = el('div');
+  let summary = null; // the phone's "Filters (n)" button, set below
+  const countFilters = () => {
+    const n = Object.keys(f).length;
+    if (summary) summary.textContent = n ? `${t('rl.filters')} (${n})` : t('rl.filters');
+    return n;
+  };
   const setFilter = (k, v) => {
     if (v) f[k] = v; else delete f[k];
     st.page = 0;
+    countFilters();
     load();
   };
 
@@ -48,11 +56,11 @@ export async function render(ctx, view, _params, isCurrent) {
     const pj = projs.data.filter((p) => !f.type || p.type === f.type);
     const ot = others.data.filter((o) => !f.type || o.project_type === f.type);
     const opts = [{ label: t('common.all'), value: '' }];
-    if (pj.length) opts.push({ group: t('rl.projectsGroup'), options: pj.map((p) => ({ label: `${p.name} · ${p.type}`, value: `p:${p.id}` })) });
+    if (pj.length) opts.push({ group: t('rl.projectsGroup'), options: pj.map((p) => ({ label: `${iso(p.name)} · ${p.type}`, value: `p:${p.id}` })) });
     if (ot.length) {
       const seen = new Set();
       const uniq = ot.filter((o) => !seen.has(o.name) && seen.add(o.name));
-      opts.push({ group: t('rl.otherGroup'), options: uniq.map((o) => ({ label: `${o.name} (${t('card.other')})`, value: `o:${o.name}` })) });
+      opts.push({ group: t('rl.otherGroup'), options: uniq.map((o) => ({ label: `${iso(o.name)} (${t('card.other')})`, value: `o:${o.name}` })) });
     }
     return opts;
   };
@@ -75,13 +83,26 @@ export async function render(ctx, view, _params, isCurrent) {
       projSelect.replaceWith(fresh);
       projSelect = fresh;
       st.page = 0;
+      countFilters();
       load();
     });
 
-  const dateInput = (key) => el('input', {
-    class: 'input', type: 'date', value: f[key] ?? '',
-    onchange: (e) => setFilter(key, e.target.value),
-  });
+  // The phone's own date box shows mm/dd/yyyy on many devices; show "8 Oct 2026" / "8 أكتوبر 2026"
+  // on top of it instead, and still open the phone's own calendar when tapped.
+  const dateInput = (key) => {
+    const shown = el('span', { class: f[key] ? '' : 'muted', text: f[key] ? fmtIsoDay(f[key]) : t('rl.pickDate') });
+    const input = el('input', {
+      type: 'date', value: f[key] ?? '', 'aria-label': t(key === 'from' ? 'rl.from' : 'rl.to'),
+      onclick: (e) => { try { e.target.showPicker(); } catch { /* older browsers open it themselves */ } },
+      onchange: (e) => {
+        const v = e.target.value;
+        shown.textContent = v ? fmtIsoDay(v) : t('rl.pickDate');
+        shown.className = v ? '' : 'muted';
+        setFilter(key, v);
+      },
+    });
+    return el('span', { class: 'input date-box' }, shown, input);
+  };
   const fromInput = dateInput('from');
   const toInput = dateInput('to');
 
@@ -90,7 +111,7 @@ export async function render(ctx, view, _params, isCurrent) {
     onclick: () => { st.f = {}; st.page = 0; render(ctx, view, _params, isCurrent); },
   });
 
-  const filters = el('div', { class: 'filters' },
+  const filterGrid = el('div', { class: 'filters' },
     field(t('rl.consultant'), consCombo),
     field(t('rl.type'), typeSelect),
     projField,
@@ -98,6 +119,10 @@ export async function render(ctx, view, _params, isCurrent) {
     field(t('rl.to'), toInput),
     el('div', { class: 'field' }, clearBtn));
 
+  // Phones: filters fold away behind one button (open when a filter is already set).
+  summary = el('summary');
+  const filters = el('details', { class: 'filters-box', open: countFilters() > 0 || !window.matchMedia('(max-width: 700px)').matches },
+    summary, filterGrid);
   view.lastChild.replaceWith(el('div', {}, filters, listBox));
 
   // ---------------------------------------------------------------- list
@@ -121,18 +146,24 @@ export async function render(ctx, view, _params, isCurrent) {
       rows: data,
       empty: t('rl.empty'),
       onRowClick: (r) => ctx.go(`report/${r.id}`),
+      cls: 'cards',
       columns: [
         { label: t('col.consultant'), cls: 'name', render: (r) => el('span', { dir: 'auto', text: r.consultant_name_snapshot }) },
-        { label: t('col.mobile'), cls: 'mob', render: (r) => r.consultant_mobile_snapshot },
-        { label: t('col.type'), render: (r) => el('span', { class: 'pill', text: r.project_type }) },
-        { label: t('col.project'), render: (r) => el('span', { dir: 'auto', text: cardProjectName(r, getLang()) }) },
-        { label: t('col.date'), cls: 'num', render: (r) => fmtIsoDay(reportDay(r)) },
-        { label: t('col.time'), cls: 'num', render: (r) => sentLabel(r) },
+        { label: t('col.type'), cls: 'badge', render: (r) => el('span', { class: 'pill', text: r.project_type }) },
+        { label: t('col.mobile'), cls: 'hide-m', render: (r) => el('span', { class: 'ltr', dir: 'ltr', text: r.consultant_mobile_snapshot }) },
+        { label: t('col.project'), cls: 'plain', render: (r) => el('span', { dir: 'auto', text: cardProjectName(r, getLang()) }) },
+        { label: t('col.date'), cls: 'num hide-m', render: (r) => fmtIsoDay(reportDay(r)) },
+        { label: t('col.time'), cls: 'num hide-m', render: (r) => sentLabel(r) },
         {
-          label: t('col.photos'), cls: 'num',
+          label: t('col.photos'), cls: 'num hide-m',
           render: (r) => (r.photos_expected > r.photo_count
             ? el('span', { class: 'pill warn', title: t('exp.photosPending'), text: `${r.photo_count}/${r.photos_expected}` })
             : String(r.photo_count)),
+        },
+        {
+          // Phones: date, time and photos on one line.
+          label: '', cls: 'm-only foot',
+          render: (r) => `${fmtIsoDay(reportDay(r))} · ${sentLabel(r)} · ${t('col.photos')}: ${r.photos_expected > r.photo_count ? `${r.photo_count}/${r.photos_expected}` : r.photo_count}`,
         },
       ],
     });

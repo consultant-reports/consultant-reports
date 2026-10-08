@@ -6,3 +6,5 @@ Thumbs.db
 .env
 .env.*
 .claude/
+dev/
+dashboard-mock.html

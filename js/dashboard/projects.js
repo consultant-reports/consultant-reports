@@ -1,7 +1,8 @@
 // Projects management (Section 8.4): add, edit, deactivate; promote "Other" names.
-import { t } from '../i18n.js?v=26';
-import { el, fmtDate, PROJECT_TYPES } from '../lib.js?v=26';
-import { loadingBlock, errorBlock, viewHead, dataTable, select, field } from './ui.js?v=26';
+import { t } from '../i18n.js?v=29';
+import { el, PROJECT_TYPES } from '../lib.js?v=29';
+import { fmtDate } from './dates.js?v=29';
+import { loadingBlock, errorBlock, viewHead, dataTable, select, field, iso } from './ui.js?v=29';
 
 export async function render(ctx, view, _params, isCurrent) {
   view.replaceChildren(viewHead(t('nav.projects')), loadingBlock());
@@ -44,14 +45,15 @@ export async function render(ctx, view, _params, isCurrent) {
   // ---------------------------------------------------------------- list
   const list = dataTable({
     rows: projs.data,
+    cls: 'cards',
     columns: [
       { label: t('col.name'), cls: 'name', render: (p) => el('span', { dir: 'auto', text: p.name }) },
-      { label: t('col.type'), render: (p) => el('span', { class: 'pill', text: p.type }) },
+      { label: t('col.type'), cls: 'tag', render: (p) => el('span', { class: 'pill', text: p.type }) },
       {
-        label: t('col.status'),
-        render: (p) => el('span', { class: `pill ${p.is_active ? '' : 'muted'}`, text: t(p.is_active ? 'common.active' : 'common.inactive') }),
+        label: t('col.status'), cls: 'tag',
+        render: (p) => el('span', { class: `pill ${p.is_active ? 'ok' : 'muted'}`, text: t(p.is_active ? 'common.active' : 'common.inactive') }),
       },
-      { label: '', render: (p) => rowActions(p) },
+      { label: '', cls: 'acts', render: (p) => rowActions(p) },
     ],
   });
 
@@ -105,12 +107,13 @@ export async function render(ctx, view, _params, isCurrent) {
   // ---------------------------------------------------------------- "Other" names
   const othersTable = dataTable({
     rows: others.data,
+    cls: 'cards',
     columns: [
-      { label: t('col.type'), render: (o) => el('span', { class: 'pill', text: o.project_type }) },
       { label: t('col.name'), cls: 'name', render: (o) => el('span', { dir: 'auto', text: o.name }) },
-      { label: t('col.reports'), cls: 'num', render: (o) => String(o.report_count) },
-      { label: t('col.lastUsed'), cls: 'num', render: (o) => fmtDate(o.last_used) },
-      { label: '', render: (o) => promoteCell(o) },
+      { label: t('col.type'), cls: 'tag', render: (o) => el('span', { class: 'pill', text: o.project_type }) },
+      { label: t('col.reports'), cls: 'num meta', render: (o) => String(o.report_count) },
+      { label: t('col.lastUsed'), cls: 'num meta', render: (o) => fmtDate(o.last_used) },
+      { label: '', cls: 'acts', render: (o) => promoteCell(o) },
     ],
   });
 
@@ -141,7 +144,7 @@ export async function render(ctx, view, _params, isCurrent) {
     const link = el('button', {
       type: 'button', class: 'btn sm', text: t('pj.linkExisting'),
       onclick: () => {
-        const opts = projs.data.map((p) => ({ label: `${p.name} · ${p.type}`, value: p.id }));
+        const opts = projs.data.map((p) => ({ label: `${iso(p.name)} · ${p.type}`, value: p.id }));
         if (!opts.length) return;
         let target = opts[0].value;
         box.replaceChildren(

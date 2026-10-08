@@ -1,8 +1,9 @@
 // Consultants (Section 8.5): registrations, last submission, Active toggle,
 // plus the team access code (manager may change it) and releasing a phone.
-import { t } from '../i18n.js?v=26';
-import { el, fmtDate, fmtDateTime, errorKey } from '../lib.js?v=26';
-import { loadingBlock, errorBlock, viewHead, dataTable, field, select } from './ui.js?v=26';
+import { t } from '../i18n.js?v=29';
+import { el, errorKey } from '../lib.js?v=29';
+import { fmtDate, fmtDateTime } from './dates.js?v=29';
+import { loadingBlock, errorBlock, viewHead, dataTable, field, select, phoneLink, iso } from './ui.js?v=29';
 
 export async function render(ctx, view, _params, isCurrent) {
   view.replaceChildren(viewHead(t('nav.consultants')), loadingBlock());
@@ -64,11 +65,8 @@ export async function render(ctx, view, _params, isCurrent) {
           twin ? el('div', { class: 'pill warn', style: 'margin-top:4px', text: t('cs.similar', { name: twin }) }) : null);
       },
     },
-    { label: t('col.mobile'), cls: 'mob', render: (c) => el('a', { href: `tel:${c.mobile}`, text: c.mobile }) },
-    { label: t('col.registered'), cls: 'num', render: (c) => fmtDate(c.created_at) },
-    { label: t('col.lastSubmission'), cls: 'num', render: (c) => (c.last_submitted_at ? fmtDateTime(c.last_submitted_at) : el('span', { class: 'muted', text: t('cs.never') })) },
     {
-      label: t('common.active'),
+      label: t('common.active'), cls: 'badge',
       render: (c) => {
         const box = el('input', {
           type: 'checkbox', checked: c.is_active, 'aria-label': `${t('common.active')} — ${c.full_name}`,
@@ -79,15 +77,28 @@ export async function render(ctx, view, _params, isCurrent) {
             if (err) { e.target.checked = !e.target.checked; ctx.toast(t('err.generic')); }
           },
         });
-        return el('label', { class: 'toggle' }, box);
+        return el('label', { class: 'toggle' }, box, el('span', { class: 'm-only small', text: t('common.active') }));
+      },
+    },
+    { label: t('col.mobile'), cls: 'meta', render: (c) => phoneLink(c.mobile) },
+    { label: t('col.registered'), cls: 'num hide-m', render: (c) => fmtDate(c.created_at) },
+    { label: t('col.lastSubmission'), cls: 'num meta', render: (c) => (c.last_submitted_at ? fmtDateTime(c.last_submitted_at) : el('span', { class: 'muted', text: t('cs.never') })) },
+    {
+      label: t('cs.phone'), cls: 'meta',
+      render: (c) => {
+        const n = Number(c.phones);
+        const box = el('div', { class: 'pills' },
+          el('span', { class: `pill ${n > 0 ? '' : 'muted'}`, text: t(n === 0 ? 'cs.unbound' : n === 1 ? 'cs.devices1' : n === 2 ? 'cs.devices2' : 'cs.devicesN', { n }) }));
+        if (c.allow_active) box.append(el('span', { class: 'pill', text: t('cs.deviceAllowedUntil', { h: hoursLeft(c.allow_new_device_at) }) }));
+        else if (c.allow_new_device) box.append(el('span', { class: 'pill warn', text: t('cs.allowExpired') }));
+        return box;
       },
     },
     {
-      label: t('cs.phone'),
+      label: '', cls: 'acts',
       render: (c) => {
+        // Every action sits behind one "Actions" button, so a consultant takes a few lines, not a screen.
         const box = el('div', { class: 'actions' });
-        const n = Number(c.phones);
-        box.append(el('span', { class: `pill ${n > 0 ? '' : 'muted'}`, text: t(n === 0 ? 'cs.unbound' : n === 1 ? 'cs.devices1' : n === 2 ? 'cs.devices2' : 'cs.devicesN', { n }) }));
         if (Number(c.phones) > 0) {
           box.append(el('button', {
             type: 'button', class: 'btn sm', text: t('cs.release'),
@@ -103,31 +114,23 @@ export async function render(ctx, view, _params, isCurrent) {
         }
         if (c.allow_active) {
           // Waiting for the consultant to register on the new device: tell them on WhatsApp.
-          box.append(el('span', { class: 'pill', text: t('cs.deviceAllowedUntil', { h: hoursLeft(c.allow_new_device_at) }) }), whatsappLink(c), el('button', {
+          box.append(whatsappLink(c), el('button', {
             type: 'button', class: 'btn sm', text: t('cs.cancelAllow'),
             onclick: () => setAllow(c, false),
           }));
-        } else if (c.allow_new_device) {
-          // Expired: the server no longer honours it — say so and offer it again.
-          box.append(el('span', { class: 'pill warn', text: t('cs.allowExpired') }), el('button', {
-            type: 'button', class: 'btn sm', text: t('cs.allowAgain'),
-            onclick: () => setAllow(c, true),
-          }));
         } else {
+          // Expired allowances are no longer honoured by the server: offer it again.
           box.append(el('button', {
-            type: 'button', class: 'btn sm', text: t('cs.allowDevice'),
+            type: 'button', class: 'btn sm', text: t(c.allow_new_device ? 'cs.allowAgain' : 'cs.allowDevice'),
             onclick: () => setAllow(c, true),
           }));
         }
-        return box;
+        box.append(
+          el('button', { type: 'button', class: 'btn sm', text: t('common.edit'), onclick: (e) => editRow(c, e.target.closest('tr')) }),
+          el('button', { type: 'button', class: 'btn sm', text: t('cs.merge'), onclick: (e) => mergeRow(c, e.target.closest('tr')) }),
+          el('button', { type: 'button', class: 'btn sm danger-outline', text: t('cs.delete'), onclick: (e) => removeConsultant(c, e.target) }));
+        return el('details', { class: 'more' }, el('summary', { text: t('cs.actions') }), box);
       },
-    },
-    {
-      label: '',
-      render: (c) => el('div', { class: 'actions' },
-        el('button', { type: 'button', class: 'btn sm', text: t('common.edit'), onclick: (e) => editRow(c, e.target.closest('tr')) }),
-        el('button', { type: 'button', class: 'btn sm', text: t('cs.merge'), onclick: (e) => mergeRow(c, e.target.closest('tr')) }),
-        el('button', { type: 'button', class: 'btn sm danger-outline', text: t('cs.delete'), onclick: (e) => removeConsultant(c, e.target) })),
     },
   ];
 
@@ -140,7 +143,7 @@ export async function render(ctx, view, _params, isCurrent) {
     const others = data.filter((x) => x.id !== c.id);
     if (!others.length) return;
     let target = others[0].id;
-    const sel = select(others.map((x) => ({ label: `${x.full_name} · ${x.mobile}`, value: x.id })), target, (v) => { target = v; });
+    const sel = select(others.map((x) => ({ label: `${iso(x.full_name)} · ${x.mobile}`, value: x.id })), target, (v) => { target = v; });
     const go = el('button', {
       type: 'button', class: 'btn sm primary', text: t('cs.mergeGo'),
       onclick: async () => {
@@ -253,5 +256,5 @@ export async function render(ctx, view, _params, isCurrent) {
         },
       })),
     el('p', { class: 'muted small section-hint', text: t('cs.hint') }),
-    dataTable({ rows: data, columns })));
+    dataTable({ rows: data, columns, cls: 'cards' })));
 }

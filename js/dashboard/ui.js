@@ -1,6 +1,6 @@
 // Small UI building blocks shared by the dashboard views.
-import { t } from '../i18n.js?v=26';
-import { el } from '../lib.js?v=26';
+import { t } from '../i18n.js?v=29';
+import { el } from '../lib.js?v=29';
 
 export function loadingBlock() {
   return el('div', { class: 'center-state' }, el('span', { class: 'spinner' }), el('p', { text: t('common.loading') }));
@@ -28,8 +28,8 @@ export function statCard(n, label, alt = false) {
  * columns: [{ label, cls, render: (row) => Node|string }]
  * On phones the table turns into stacked cards (labels come from data-label).
  */
-export function dataTable({ columns, rows, onRowClick, empty }) {
-  const table = el('table', { class: 'data stack' },
+export function dataTable({ columns, rows, onRowClick, empty, cls = '' }) {
+  const table = el('table', { class: `data stack ${cls}` },
     el('thead', {}, el('tr', {}, columns.map((c) => el('th', { text: c.label })))));
   const tbody = el('tbody');
   if (!rows.length) {
@@ -95,6 +95,14 @@ export function combo({ items, value = '', placeholder, onChange }) {
   });
   root.setValue = (v) => { current = v; input.value = labelOf(v); };
   return root;
+}
+
+/** Wraps text that mixes Arabic and English (project names) so it never reorders its neighbours. */
+export const iso = (text) => `⁨${text}⁩`;
+
+/** A phone number that always reads left to right, inside Arabic text too. */
+export function phoneLink(mobile) {
+  return el('a', { class: 'ltr', dir: 'ltr', href: `tel:${mobile}`, text: mobile });
 }
 
 export function select(options, value, onChange) {
