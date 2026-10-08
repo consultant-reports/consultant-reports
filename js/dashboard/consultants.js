@@ -1,9 +1,9 @@
 // Consultants (Section 8.5): registrations, last submission, Active toggle,
 // plus the team access code (manager may change it) and releasing a phone.
-import { t } from '../i18n.js?v=29';
-import { el, errorKey } from '../lib.js?v=29';
-import { fmtDate, fmtDateTime } from './dates.js?v=29';
-import { loadingBlock, errorBlock, viewHead, dataTable, field, select, phoneLink, iso } from './ui.js?v=29';
+import { t } from '../i18n.js?v=30';
+import { el, errorKey } from '../lib.js?v=30';
+import { fmtDate, fmtDateTime } from './dates.js?v=30';
+import { loadingBlock, errorBlock, viewHead, dataTable, field, select, phoneLink, iso } from './ui.js?v=30';
 
 export async function render(ctx, view, _params, isCurrent) {
   view.replaceChildren(viewHead(t('nav.consultants')), loadingBlock());

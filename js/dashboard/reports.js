@@ -1,15 +1,15 @@
 // Reports list (Section 8.2) with combinable filters, pagination and exports (8.6).
-import { CONFIG } from '../config.js?v=29';
-import { t, getLang } from '../i18n.js?v=29';
-import { el, reportDay, PROJECT_TYPES } from '../lib.js?v=29';
-import { fmtIsoDay, sentLabel } from './dates.js?v=29';
+import { CONFIG } from '../config.js?v=30';
+import { t, getLang } from '../i18n.js?v=30';
+import { el, reportDay, PROJECT_TYPES } from '../lib.js?v=30';
+import { fmtIsoDay, sentLabel } from './dates.js?v=30';
 import {
   LIST_COLS, applyFilters, fetchAllReports, photoLoader, exportRange, exportBaseName, filterParts, saveBlob,
-} from '../export/data.js?v=29';
-import { cardProjectName } from '../export/card.js?v=29';
-import { buildPdf } from '../export/pdf.js?v=29';
-import { buildExcel } from '../export/excel.js?v=29';
-import { loadingBlock, errorBlock, viewHead, dataTable, combo, select, field, progressBar, iso } from './ui.js?v=29';
+} from '../export/data.js?v=30';
+import { cardProjectName } from '../export/card.js?v=30';
+import { buildPdf } from '../export/pdf.js?v=30';
+import { buildExcel } from '../export/excel.js?v=30';
+import { loadingBlock, errorBlock, viewHead, dataTable, combo, select, field, progressBar, iso } from './ui.js?v=30';
 
 export async function render(ctx, view, _params, isCurrent) {
   const st = (ctx.state.reports ??= { f: {}, page: 0 });

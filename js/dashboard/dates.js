@@ -1,10 +1,10 @@
 // Dates for the dashboard screens, in the screen's language: "8 أكتوبر 2026" / "08 Oct 2026".
 // Same names as the lib.js helpers, so a view only changes its import. Exports (PDF, Excel)
 // keep using lib.js and are not affected.
-import { getLang } from '../i18n.js?v=29';
+import { getLang } from '../i18n.js?v=30';
 import {
   fmtIsoDay as enDay, fmtTime, isoDay, reportDay,
-} from '../lib.js?v=29';
+} from '../lib.js?v=30';
 
 const AR_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 

@@ -1,13 +1,13 @@
 // Today (Section 8.1): who submitted, who did not — for today's date on the server (Riyadh),
 // counting reports by the day they are for. Also shows storage and keep-alive warnings here,
 // because the manager rarely opens the Storage or Admin screens.
-import { CONFIG } from '../config.js?v=29';
-import { t, getLang } from '../i18n.js?v=29';
-import { el, todayIso } from '../lib.js?v=29';
-import { fmtIsoDay, sentLabel } from './dates.js?v=29';
-import { LIST_COLS } from '../export/data.js?v=29';
-import { cardProjectName } from '../export/card.js?v=29';
-import { loadingBlock, errorBlock, viewHead, statCard } from './ui.js?v=29';
+import { CONFIG } from '../config.js?v=30';
+import { t, getLang } from '../i18n.js?v=30';
+import { el, todayIso } from '../lib.js?v=30';
+import { fmtIsoDay, sentLabel } from './dates.js?v=30';
+import { LIST_COLS } from '../export/data.js?v=30';
+import { cardProjectName } from '../export/card.js?v=30';
+import { loadingBlock, errorBlock, viewHead, statCard } from './ui.js?v=30';
 
 export async function render(ctx, view, _params, isCurrent) {
   const refresh = el('button', { type: 'button', class: 'btn sm', text: '↻', 'aria-label': t('common.retry'), onclick: () => render(ctx, view, _params, isCurrent) });

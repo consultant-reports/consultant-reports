@@ -1,6 +1,6 @@
 // Small UI building blocks shared by the dashboard views.
-import { t } from '../i18n.js?v=29';
-import { el } from '../lib.js?v=29';
+import { t } from '../i18n.js?v=30';
+import { el } from '../lib.js?v=30';
 
 export function loadingBlock() {
   return el('div', { class: 'center-state' }, el('span', { class: 'spinner' }), el('p', { text: t('common.loading') }));
@@ -97,8 +97,13 @@ export function combo({ items, value = '', placeholder, onChange }) {
   return root;
 }
 
-/** Wraps text that mixes Arabic and English (project names) so it never reorders its neighbours. */
-export const iso = (text) => `⁨${text}⁩`;
+/**
+ * Wraps text that mixes Arabic and English (project names) so it never reorders its neighbours.
+ * Direction-control characters typed into a name are dropped first, so a name cannot close the
+ * wrapper early and flip the rest of the line.
+ */
+const BIDI_CONTROLS = /[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g;
+export const iso = (text) => `\u2068${String(text).replace(BIDI_CONTROLS, '')}\u2069`;
 
 /** A phone number that always reads left to right, inside Arabic text too. */
 export function phoneLink(mobile) {
