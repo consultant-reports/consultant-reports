@@ -1,7 +1,7 @@
 // Projects management (Section 8.4): add, edit, deactivate; promote "Other" names.
-import { t } from '../i18n.js?v=24';
-import { el, fmtDate, PROJECT_TYPES } from '../lib.js?v=24';
-import { loadingBlock, errorBlock, viewHead, dataTable, select, field } from './ui.js?v=24';
+import { t } from '../i18n.js?v=25';
+import { el, fmtDate, PROJECT_TYPES } from '../lib.js?v=25';
+import { loadingBlock, errorBlock, viewHead, dataTable, select, field } from './ui.js?v=25';
 
 export async function render(ctx, view, _params, isCurrent) {
   view.replaceChildren(viewHead(t('nav.projects')), loadingBlock());

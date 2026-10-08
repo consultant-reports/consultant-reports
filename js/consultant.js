@@ -1,11 +1,11 @@
 // Consultant app (Section 7): registration + Submit Report.
-import { CONFIG } from './config.js?v=24';
-import { t, applyI18n, bindLangToggle } from './i18n.js?v=24';
+import { CONFIG } from './config.js?v=25';
+import { t, applyI18n, bindLangToggle } from './i18n.js?v=25';
 import {
   createSupabase, normalizeMobile, toWesternDigits, fmtDate, fmtTime, isoDay, fmtIsoDay, uuid, errorKey, PROJECT_TYPES, sleep,
-} from './lib.js?v=24';
-import { sanitizeReportHtml } from './sanitize.js?v=24';
-import { photoStore } from './idb.js?v=24';
+} from './lib.js?v=25';
+import { sanitizeReportHtml } from './sanitize.js?v=25';
+import { photoStore } from './idb.js?v=25';
 
 const sb = createSupabase({ anonymous: true });
 const $ = (id) => document.getElementById(id);
@@ -491,6 +491,11 @@ function initEditor() {
       uploader: { mimetypes: [] },
     },
   });
+  // Phone keyboards type the first word as a "composition", and Quill hides its placeholder only
+  // when the word is finished, so the hint stayed under the text. Hide it as soon as typing starts.
+  const hideHint = () => quill.root.classList.remove('ql-blank');
+  quill.root.addEventListener('compositionstart', hideHint);
+  quill.root.addEventListener('input', () => { if (quill.root.textContent) hideHint(); });
   quill.clipboard.addMatcher(Node.ELEMENT_NODE, (node, delta) => {
     delta.ops.forEach((op) => {
       if (op.attributes) { delete op.attributes.color; delete op.attributes.background; }
